@@ -1,0 +1,237 @@
+<!-- This is a backup of the team calendar template before the latest changes. team_calendar.html -->
+
+{% extends "users/base.html" %}
+{% block title %}{{ team.name }} Calendar{% endblock %}
+{% block content %}
+{% csrf_token %}
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+<div class="mb-4 d-flex align-items-center">
+    <span id="homeLabel" class="fw-bold me-2" style="color:#87CEFA; cursor:pointer;">Home</span>
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="homeAwayToggle">
+    </div>
+    <span id="awayLabel" class="fw-bold ms-2" style="color:#ffb366; cursor:pointer;">Away</span>
+</div>
+
+<!-- Change this div -->
+<div class="btn-group mb-3 d-flex justify-content-center" style="width: 33%; margin: 0 auto;">
+    <button id="calendarViewBtn" class="btn btn-primary active btn-sm">Calendar View</button>
+    <button id="tableViewBtn" class="btn btn-primary btn-sm">Table View</button>
+</div>
+
+<!-- Add table view (initially hidden) -->
+<div id="tableView" class="table-responsive" style="display: none;">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Home/Away</th>
+            </tr>
+        </thead>
+        <tbody id="dateTableBody">
+        </tbody>
+    </table>
+</div>
+
+<!-- Existing calendar div -->
+<div id="calendar"></div>
+
+<script>
+let mode = 'home';
+let events = JSON.parse('{{ team_dates_json|escapejs }}') || [];  // This line initializes events with database data
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        headerToolbar: {
+            left: '',           // Move title to left
+            center: 'title',              // Empty center
+            right: 'prev,next'       // Both arrows on right
+        },
+        initialView: 'multiMonth',
+        views: {
+            multiMonth: {
+                duration: { months: 8 },     // Show 8 months total
+                multiMonthMaxColumns: 2,     // 2 columns
+                multiMonthRows: 4            // 4 rows
+            }
+        },
+        dayMaxEvents: 0,
+        showNonCurrentDates: true,
+        fixedWeekCount: false,
+        height: 'auto',
+        selectable: true,
+        eventDisplay: 'none',
+        selectMirror: true,
+        dateClick: function(info) {
+            const existingEventIndex = events.findIndex(ev => ev.start === info.dateStr);
+            
+            if (existingEventIndex !== -1) {
+                // Remove existing event
+                events.splice(existingEventIndex, 1);
+                info.dayEl.style.backgroundColor = '';
+                info.dayEl.style.color = '';
+                // Delete from database
+                saveToDatabase(info.dateStr, null);
+            } else {
+                // Add new event
+                const isHome = mode === 'home';
+                events.push({
+                    title: isHome ? 'Home Game' : 'Away Game',
+                    start: info.dateStr,
+                    allDay: true,
+                    color: isHome ? '#87CEFA' : '#ffb366'
+                });
+                info.dayEl.style.backgroundColor = isHome ? '#87CEFA' : '#ffb366';
+                info.dayEl.style.color = '#000';  // Changed to black text
+                // Save to database
+                saveToDatabase(info.dateStr, isHome);
+            }
+        },
+        dayCellDidMount: function(arg) {
+            // Apply colors to any existing events
+            const event = events.find(ev => ev.start === arg.dateStr);
+            if (event) {
+                arg.el.style.backgroundColor = event.color;
+                arg.el.style.color = '#000';  // Changed to black text
+            }
+        },
+        datesSet: function() {
+            // Reapply colors when view changes
+            events.forEach(event => {
+                const cell = document.querySelector(`.fc-daygrid-day[data-date="${event.start}"]`);
+                if (cell) {
+                    cell.style.backgroundColor = event.color;
+                    cell.style.color = '#000';  // Changed to black text
+                }
+            });
+        }
+    });
+    
+    const toggle = document.getElementById('homeAwayToggle');
+    const homeLabel = document.getElementById('homeLabel');
+    const awayLabel = document.getElementById('awayLabel');
+
+    toggle.addEventListener('change', function() {
+        if (this.checked) {
+            mode = 'away';
+            homeLabel.style.opacity = 0.5;
+            awayLabel.style.opacity = 1;
+        } else {
+            mode = 'home';
+            homeLabel.style.opacity = 1;
+            awayLabel.style.opacity = 0.5;
+        }
+    });
+
+    // Make labels clickable
+    homeLabel.addEventListener('click', function() {
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change'));
+    });
+    awayLabel.addEventListener('click', function() {
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change'));
+    });
+
+    // Set initial state
+    homeLabel.style.opacity = 1;
+    awayLabel.style.opacity = 0.5;
+
+    // Add this function before calendar.render()
+    function saveToDatabase(dateStr, isHome) {
+        fetch(`/team/{{ team.id }}/save-dates/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                date: dateStr,
+                is_home: isHome
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Failed to save date');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // View toggle functionality
+    const calendarView = document.getElementById('calendar');
+    const tableView = document.getElementById('tableView');
+    const calendarViewBtn = document.getElementById('calendarViewBtn');
+    const tableViewBtn = document.getElementById('tableViewBtn');
+
+    function updateTableView() {
+        const tableBody = document.getElementById('dateTableBody');
+        tableBody.innerHTML = '';
+        
+        // Sort events by date
+        const sortedEvents = [...events].sort((a, b) => a.start.localeCompare(b.start));
+        
+        sortedEvents.forEach(event => {
+            const row = document.createElement('tr');
+            const dateCell = document.createElement('td');
+            const typeCell = document.createElement('td');
+            
+            // Format date as MM/DD/YYYY
+            const date = new Date(event.start);
+            const formattedDate = date.toLocaleDateString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: 'numeric'
+            });
+            
+            dateCell.textContent = formattedDate;
+            typeCell.textContent = event.title === 'Home Game' ? 'Home' : 'Away';
+            typeCell.style.color = event.title === 'Home Game' ? '#87CEFA' : '#ffb366';
+            
+            row.appendChild(dateCell);
+            row.appendChild(typeCell);
+            tableBody.appendChild(row);
+        });
+    }
+
+    calendarViewBtn.addEventListener('click', () => {
+        calendarView.style.display = 'block';
+        tableView.style.display = 'none';
+        calendarViewBtn.classList.add('active');
+        tableViewBtn.classList.remove('active');
+    });
+
+    tableViewBtn.addEventListener('click', () => {
+        calendarView.style.display = 'none';
+        tableView.style.display = 'block';
+        calendarViewBtn.classList.remove('active');
+        tableViewBtn.classList.add('active');
+        updateTableView();
+    });
+
+    // Update table when events change
+    const originalSaveToDatabase = saveToDatabase;
+    saveToDatabase = function(dateStr, isHome) {
+        originalSaveToDatabase(dateStr, isHome);
+        if (tableView.style.display !== 'none') {
+            updateTableView();
+        }
+    };
+
+    calendar.render();
+});
+</script>
+
+<p class="mt-3 text-muted">
+    Click "Home" or "Away" then click a date to add games. Click a colored cell to remove it.
+</p>
+{% if user in team.admins.all %}
+    <a href="{% url 'edit_team' team.id %}" class="btn btn-warning mb-3">Edit Team</a>
+{% endif %}
+
+{% endblock %}

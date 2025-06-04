@@ -1,0 +1,14 @@
+{% extends "users/base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2>{{ team.name }} Team Page</h2>
+    <ul class="list-group">
+        <li class="list-group-item">
+            <a href="{% url 'team_calendar' team.id %}">Team Calendar</a>
+        </li>
+        <li class="list-group-item">
+            <a href="{% url 'team_profile' team.id %}">Team Profile</a>
+        </li>
+    </ul>
+</div>
+{% endblock %}s

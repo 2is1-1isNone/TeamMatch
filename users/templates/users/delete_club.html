@@ -1,0 +1,22 @@
+{% extends "users/base.html" %}
+{% load django_bootstrap5 %}
+
+{% block title %}Delete {{ club.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h3>Delete Club</h3>
+            <p class="text-danger">Are you sure you want to delete {{ club.name }}?</p>
+            <p>This action cannot be undone.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Delete Club</button>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

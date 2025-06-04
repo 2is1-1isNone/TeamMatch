@@ -1,0 +1,146 @@
+{% extends "users/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ association.name }} League Schedule for {{age_group}} {{tier}} </h2>
+    <div>
+        <!-- <span class="badge bg-primary">{{ age_group }} {{ tier }}</span> -->
+        <br>
+        <br>
+        <button class="btn btn-success ms-2" id="generateScheduleBtn">
+            Generate Schedule
+        </button>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i> You are viewing this as an association administrator
+</div>
+
+{% if error %}
+<div class="alert alert-danger">
+    <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+{% if debug_info %}
+<div class="alert alert-warning">
+    <h4>Debug Information</h4>
+    <ul>
+        <li><strong>Session Data:</strong> {{ debug_info.session_data }}</li>
+        <li><strong>CSRF Token:</strong> {{ debug_info.csrf_token }}</li>
+        <li><strong>User Authenticated:</strong> {{ debug_info.user_authenticated }}</li>
+        <li><strong>User:</strong> {{ debug_info.user }}</li>
+        <li><strong>Conflicts Count:</strong> {{ debug_info.conflicts_count }}</li>
+        {% if debug_info.error_message %}
+        <li><strong>Error Message:</strong> {{ debug_info.error_message }}</li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
+
+<h2>Scheduled Matches</h2>
+<!-- Toggle View Buttons -->
+<div class="btn-group mb-3" role="group" aria-label="Toggle schedule view">
+    <a href="#" class="btn btn-primary active" aria-current="page">Table View</a>
+    <a href="{% url 'league_calendar' age_group tier %}" class="btn btn-outline-primary">Calendar View</a>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Home Team</th>
+            <th>Away Team</th>
+            <th>Dates</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for match in schedule %}
+        <tr>
+            <td>{{ match.home_team.name }}</td>
+            <td>{{ match.away_team.name }}</td>
+            <td>{{ match.dates|join:", " }}</td>
+            <td>{{ match.status }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Unscheduled Matches</h2>
+{% if unscheduled_matches %}
+<table class="table table-warning">
+    <thead>
+        <tr>
+            <th>Home Team</th>
+            <th>Away Team</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for match in unscheduled_matches %}
+        <tr>
+            <td>{{ match.home_team.name }}</td>
+            <td>{{ match.away_team.name }}</td>
+            <td>{{ match.reason }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No unscheduled matches found!</p>
+{% endif %}
+
+<h2>Team Availability</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Team</th>
+            <th>Home Availability</th>
+            <th>Away Availability</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team_data in teams_with_availability %}
+        <tr>
+            <td>{{ team_data.team.name }}</td>
+            <td>{{ team_data.home_dates|join:", " }}</td>
+            <td>{{ team_data.away_dates|join:", " }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="mt-4">
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<script>
+document.getElementById('generateScheduleBtn').addEventListener('click', function() {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+
+    fetch("{% url 'generate_schedule_service' age_group tier %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+        },
+    })
+    .then(response => {
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            this.disabled = false;
+            this.innerHTML = 'Generate Schedule';
+            alert("Failed to generate schedule. Please try again.");
+        }
+    })
+    .catch(error => {
+        this.disabled = false;
+        this.innerHTML = 'Generate Schedule';
+        alert("An error occurred: " + error.message);
+    });
+});
+</script>
+{% endblock %}

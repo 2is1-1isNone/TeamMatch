@@ -1,0 +1,22 @@
+{% extends "users/base.html" %}
+{% load django_bootstrap5 %}
+
+{% block title %}Delete {{ association.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h3>Delete Association</h3>
+            <p class="text-danger">Are you sure you want to delete {{ association.name }}?</p>
+            <p class="text-warning">This will also delete all related clubs and teams!</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Delete Association</button>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

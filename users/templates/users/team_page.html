@@ -1,0 +1,20 @@
+{% extends "users/base.html" %}
+{% block title %}{{ team.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ team.name }}</h1>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Team Information</h5>
+            <p><strong>Club:</strong> {{ team.club.name }}</p>
+            <p><strong>Age Group:</strong> {{ team.age_group }}</p>
+            <p><strong>Tier:</strong> {{ team.tier }}</p>
+            <p><strong>Location:</strong> {{ team.location }}</p>
+            {% if team.description %}
+                <p><strong>Description:</strong> {{ team.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

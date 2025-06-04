@@ -1,0 +1,13 @@
+{% extends "users/base.html" %}
+{% block title %}Confirm Delete User{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Confirm Delete User</h3>
+    <p>Are you sure you want to delete user <strong>{{ user.email }}</strong>?</p>
+    <form method="post" action="{% url 'delete_user' user.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Delete</button>
+        <a href="{% url 'control_plane' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

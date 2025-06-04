@@ -1,0 +1,225 @@
+{% extends "users/team_base.html" %}
+{% load django_bootstrap5 %}
+
+{% block team_content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ team.name }}</h2>
+        {% if user in team.admins.all %}
+            <button id="edit-btn" class="btn btn-warning" onclick="toggleEdit()">Edit</button>
+        {% endif %}
+    </div>
+
+    <!-- Profile View -->
+    <div id="profile-view" class="card">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Team Details</h4>
+                    <table class="table">
+                        <tr><th>Club:</th><td>{{ team.club.name }}</td></tr>
+                        <tr><th>Association:</th><td>{{ team.association.name }}</td></tr>
+                        <tr><th>Age Group:</th><td>{{ team.age_group }}</td></tr>
+                        <tr><th>Tier:</th><td>{{ team.tier }}</td></tr>
+                        <tr><th>Season:</th><td>{{ team.season }}</td></tr>
+                        <tr><th>Location:</th><td>{{ team.location }}</td></tr>
+                        <tr><th>Ready for Scheduling:</th><td>{{ team.ready_for_scheduling }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h4>Team Members</h4>
+                    <div class="card">
+                        <div class="card-body">
+                            <ul class="list-group">
+                                {% for member in team.members.all %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ member }}
+                                        {% if member in team.admins.all %}
+                                            <span class="badge bg-primary">Admin</span>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                            {% if user in team.admins.all %}
+                                <form method="post" action="{% url 'invite_member' team.id %}" class="mt-3">
+                                    {% csrf_token %}
+                                    <div class="input-group">
+                                        <input type="email" name="email" class="form-control" placeholder="Invite by email" required>
+                                        <button type="submit" class="btn btn-success">Invite</button>
+                                    </div>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if team.description %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h4>Description</h4>
+                    <p class="card-text">{{ team.description }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Your existing edit form (keep as is, just moved here) -->
+    {% if user in team.admins.all %}
+        <form id="edit-form" method="post" style="display:none;">
+            {% csrf_token %}
+            <!-- Association -->
+            <div class="mb-3">
+                <label for="association"><strong>Association</strong></label>
+                <select id="association" name="association" class="form-control" onchange="toggleNewAssociationInput()">
+                    <option value="">Select Association</option>
+                    <option value="__new__">-- Create new association --</option>
+                    {% for association in associations %}
+                        <option value="{{ association.id }}"
+                            {% if team and team.association.id == association.id %}selected{% endif %}>
+                            {{ association.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <input type="text" id="new_association_name" name="new_association_name" class="form-control mt-2"
+                       placeholder="Enter new association name" style="display:none;">
+            </div>
+            <!-- Club -->
+            <div class="mb-3">
+                <label for="club"><strong>Club</strong></label>
+                <select id="club" name="club" class="form-control" onchange="toggleNewClubInput()">
+                    <option value="">Select Club</option>
+                    <option value="__new__">-- Create new club --</option>
+                    {% for club in clubs %}
+                        <option value="{{ club.id }}" data-association="{{ club.association_id }}"
+                            {% if team and team.club.id == club.id %}selected{% endif %}>
+                            {{ club.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <input type="text" id="new_club_name" name="new_club_name" class="form-control mt-2"
+                       placeholder="Enter new club name" style="display:none;">
+            </div>
+            <!-- Team Name -->
+            <div class="mb-3">
+                <label for="team_name"><strong>Team Name</strong></label>
+                <input type="text" id="team_name" name="team_name" class="form-control"
+                       value="{% if team %}{{ team.name }}{% endif %}">
+            </div>
+            <!-- Age Group -->
+            <div class="mb-3">
+                <label for="age_group"><strong>Age Group</strong></label>
+                <select id="age_group" name="age_group" class="form-control">
+                    <option value="">Select Age Group</option>
+                    {% for value, label in age_groups %}
+                        <option value="{{ value }}" {% if team and team.age_group == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Tier -->
+            <div class="mb-3">
+                <label for="tier"><strong>Tier</strong></label>
+                <select id="tier" name="tier" class="form-control">
+                    <option value="">Select Tier</option>
+                    {% for value, label in tiers %}
+                        <option value="{{ value }}" {% if team and team.tier == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Season -->
+            <div class="mb-3">
+                <label for="season"><strong>Season</strong></label>
+                <input type="text" id="season" name="season" class="form-control"
+                       value="{% if team %}{{ team.season }}{% endif %}">
+            </div>
+            <!-- Description -->
+            <div class="mb-3">
+                <label for="description"><strong>Description</strong></label>
+                <textarea id="description" name="description" class="form-control">{% if team %}{{ team.description }}{% endif %}</textarea>
+            </div>
+            <!-- Location -->
+            <div class="mb-3">
+                <label for="location"><strong>Location</strong></label>
+                <input type="text" id="location" name="location" class="form-control"
+                       value="{% if team %}{{ team.location }}{% endif %}">
+            </div>
+            <!-- Ready for Scheduling -->
+            <div class="mb-3">
+                <label><input type="checkbox" name="ready_for_scheduling" {% if team and team.ready_for_scheduling %}checked{% endif %}> Ready for Scheduling</label>
+            </div>
+            <!-- Invite Members (only when creating a team) -->
+            {% if not team %}
+            <div class="mb-3">
+                <label for="invite_emails"><strong>Invite Members (comma-separated emails)</strong></label>
+                <input type="text" id="invite_emails" name="invite_emails" class="form-control" placeholder="user1@email.com, user2@email.com">
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">{% if team %}Save Changes{% else %}Create Team{% endif %}</button>
+            {% if team %}
+                <button type="button" class="btn btn-secondary" onclick="toggleEdit()">Cancel</button>
+            {% endif %}
+        </form>
+    {% endif %}
+
+    {% if team and user in team.admins.all %}
+        <form method="post" action="{% url 'delete_team' team.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this team? This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Delete Team</button>
+        </form>
+    {% endif %}
+</div>
+
+<!-- Keep your existing JavaScript -->
+<script>
+function toggleEdit() {
+    var form = document.getElementById('edit-form');
+    var view = document.getElementById('profile-view');
+    var btn = document.getElementById('edit-btn');
+    if (form.style.display === "none") {
+        form.style.display = "block";
+        if (view) view.style.display = "none";
+        btn.style.display = "none";
+    } else {
+        form.style.display = "none";
+        if (view) view.style.display = "block";
+        btn.style.display = "inline-block";
+    }
+}
+// Club filtering JS
+document.getElementById('association').addEventListener('change', function() {
+    var assocId = this.value;
+    var clubOptions = document.querySelectorAll('#club option');
+    clubOptions.forEach(function(opt) {
+        if (!opt.value || opt.value === '__new__') {
+            // Always show the placeholder and "create new club" option
+            opt.style.display = '';
+            return;
+        }
+        opt.style.display = (opt.getAttribute('data-association') === assocId) ? '' : 'none';
+    });
+    document.getElementById('club').value = '';
+});
+function toggleNewAssociationInput() {
+    var select = document.getElementById('association');
+    var input = document.getElementById('new_association_name');
+    if (select.value === '__new__') {
+        input.style.display = '';
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+    }
+}
+function toggleNewClubInput() {
+    var select = document.getElementById('club');
+    var input = document.getElementById('new_club_name');
+    if (select.value === '__new__') {
+        input.style.display = '';
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+    }
+}
+</script>
+{% endblock %}
+

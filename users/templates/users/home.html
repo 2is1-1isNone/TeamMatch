@@ -1,0 +1,17 @@
+{% extends "users/base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+    {% if not user.is_authenticated %}
+        <div class="text-center mt-5">
+            <h1>Welcome to TeamSchedule!</h1>
+            <a href="{% url 'login' %}" class="btn btn-primary m-2">Login</a>
+            <a href="{% url 'register' %}" class="btn btn-secondary m-2">Register</a>
+        </div>
+    {% else %}
+        <div class="text-center mt-5">
+            <h1>Welcome, {{ user.first_name }}!</h1>
+            <p>You are already logged in.</p>
+            <a href="{% url 'dashboard' %}" class="btn btn-success m-2">Go to Dashboard</a>
+        </div>
+    {% endif %}
+{% endblock %}

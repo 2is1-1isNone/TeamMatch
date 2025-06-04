@@ -1,0 +1,75 @@
+{% extends "users/base.html" %}
+{% block title %}Edit User - {{ edit_user.email }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Edit User: {{ edit_user.email }}</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            {{ form.email }}
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">First Name</label>
+                                {{ form.first_name }}
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Last Name</label>
+                                {{ form.last_name }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Team Memberships</label>
+                            <div class="border p-3 rounded">
+                                {{ form.teams }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Admin Roles</label>
+                            <div class="border p-3 rounded">
+                                <h6>Team Admin</h6>
+                                {{ form.admin_teams }}
+                                
+                                <h6 class="mt-3">Club Admin</h6>
+                                {{ form.admin_clubs }}
+                                
+                                <h6 class="mt-3">Association Admin</h6>
+                                {{ form.admin_associations }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'control_plane' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Make checkboxes more readable */
+.checkbox-select-multiple {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.checkbox-select-multiple label {
+    display: block;
+    padding: 3px 0;
+}
+</style>
+{% endblock %}

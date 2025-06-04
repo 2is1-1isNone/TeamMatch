@@ -1,0 +1,441 @@
+{% extends "users/base.html" %}
+{% block title %}Control Plane{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <!-- Add navigation tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#users">Users</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#teams">Teams</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#clubs">Clubs</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#associations">Associations</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Users Tab -->
+        <div class="tab-pane active" id="users">
+            <h3>Users</h3>
+            <!-- Existing users table code -->
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Team Admin Of</th>
+                            <th>Club Admin Of</th>
+                            <th>Association Admin Of</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in users_data %}
+                        <tr>
+                            <td>{{ data.user.email }}</td>
+                            <td>{{ data.user.get_full_name }}</td>
+                            <td>
+                                {% for team in data.team_admin %}
+                                    <span class="badge bg-primary">{{ team.name }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for club in data.club_admin %}
+                                    <span class="badge bg-success">{{ club.name }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for assoc in data.association_admin %}
+                                    <span class="badge bg-info">{{ assoc.name }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'edit_user' data.user.id %}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    {% if not data.user.is_superuser %}
+                                    <button class="btn btn-sm btn-danger delete-user-btn"
+                                            data-user-id="{{ data.user.id }}"
+                                            data-user-email="{{ data.user.email|escapejs }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Teams Tab -->
+        <div class="tab-pane" id="teams">
+            <h3>Teams</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Club</th>
+                            <th>Association</th>
+                            <th>Age Group</th>
+                            <th>Tier</th>
+                            <th>Season</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in teams %}
+                        <tr>
+                            <td>{{ team.name }} (id={{ team.id }})</td>
+                            <td>{{ team.club.name }}</td>
+                            <td>{{ team.association.name }}</td>
+                            <td>{{ team.age_group }}</td>
+                            <td>{{ team.tier }}</td>
+                            <td>{{ team.season }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'edit_team' team.id %}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-danger delete-team-btn"
+                                            data-team-id="{{ team.id }}"
+                                            data-team-name="{{ team.name|escapejs }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Clubs Tab -->
+        <div class="tab-pane" id="clubs">
+            <h3>Clubs</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Association</th>
+                            <th>Location</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for club in clubs %}
+                        <tr>
+                            <td>{{ club.name }}</td>
+                            <td>{{ club.association.name }}</td>
+                            <td>{{ club.location }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'edit_club' club.id %}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-danger delete-club-btn"
+                                            data-club-id="{{ club.id }}"
+                                            data-club-name="{{ club.name|escapejs }}"
+                                            onclick="confirmDeleteClub('{{ club.id }}', '{{ club.name|escapejs }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Associations Tab -->
+        <div class="tab-pane" id="associations">
+            <h3>Associations</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for association in associations %}
+                        <tr>
+                            <td>{{ association.name }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'edit_association' association.id %}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-danger delete-association-btn"
+                                            data-association-id="{{ association.id }}"
+                                            data-association-name="{{ association.name|escapejs }}"
+                                            onclick="confirmDeleteAssociation('{{ association.id }}', '{{ association.name|escapejs }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add delete confirmation modal -->
+<div class="modal fade" id="deleteTeamModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="teamNameSpan"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add user delete modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete user <span id="userEmailSpan"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteUserBtn" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add delete confirmation modal for clubs -->
+<div class="modal fade" id="deleteClubModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete Club</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="clubNameSpan"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteClubBtn" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add delete confirmation modal for associations -->
+<div class="modal fade" id="deleteAssociationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete Association</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="associationNameSpan"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteAssociationBtn" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- First, add a hidden input to store the active tab -->
+<div class="container mt-4">
+    <input type="hidden" id="activeTab" value="users">
+</div>
+
+<script>
+// Add proper error handling and feedback
+function showErrorMessage(message) {
+    // You'll need to add this alert div to your HTML
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container').prepend(alertDiv);
+}
+
+function confirmDeleteTeam(teamId, teamName) {
+    try {
+        const nameSpan = document.getElementById('teamNameSpan');
+        const deleteBtn = document.getElementById('confirmDeleteBtn');
+        const modal = document.getElementById('deleteTeamModal');
+        
+        if (!nameSpan || !deleteBtn || !modal) {
+            throw new Error('Required modal elements not found');
+        }
+
+        nameSpan.textContent = teamName;
+        // Add return tab parameter to URL
+        deleteBtn.href = `/team/${teamId}/delete/?return_tab=teams`;
+        new bootstrap.Modal(modal).show();
+    } catch (error) {
+        console.error('Error showing team delete modal:', error);
+        showErrorMessage('Unable to show delete confirmation. Please try again.');
+    }
+}
+
+function confirmDeleteUser(userId, userEmail) {
+    try {
+        const emailSpan = document.getElementById('userEmailSpan');
+        const deleteBtn = document.getElementById('confirmDeleteUserBtn');
+        const modal = document.getElementById('deleteUserModal');
+        
+        if (!emailSpan || !deleteBtn || !modal) {
+            throw new Error('Required modal elements not found');
+        }
+
+        emailSpan.textContent = userEmail;
+        deleteBtn.href = `/user/${userId}/delete/`;
+        new bootstrap.Modal(modal).show();
+    } catch (error) {
+        console.error('Error showing user delete modal:', error);
+        showErrorMessage('Unable to show delete confirmation. Please try again.');
+    }
+}
+
+function confirmDeleteClub(clubId, clubName) {
+    try {
+        const nameSpan = document.getElementById('clubNameSpan');
+        const deleteBtn = document.getElementById('confirmDeleteClubBtn');
+        const modal = document.getElementById('deleteClubModal');
+
+        if (!nameSpan || !deleteBtn || !modal) {
+            throw new Error('Required modal elements not found');
+        }
+
+        nameSpan.textContent = clubName;
+        deleteBtn.href = `/club/${clubId}/delete/`;
+        new bootstrap.Modal(modal).show();
+    } catch (error) {
+        console.error('Error showing club delete modal:', error);
+        showErrorMessage('Unable to show delete confirmation. Please try again.');
+    }
+}
+
+/* Add return tab parameter to URL for association deletion */
+function confirmDeleteAssociation(associationId, associationName) {
+    try {
+        const nameSpan = document.getElementById('associationNameSpan');
+        const deleteBtn = document.getElementById('confirmDeleteAssociationBtn');
+        const modal = document.getElementById('deleteAssociationModal');
+
+        if (!nameSpan || !deleteBtn || !modal) {
+            throw new Error('Required modal elements not found');
+        }
+
+        nameSpan.textContent = associationName;
+        // Add return tab parameter to URL
+        deleteBtn.href = `/association/${associationId}/delete/?return_tab=associations`;
+        new bootstrap.Modal(modal).show();
+    } catch (error) {
+        console.error('Error showing association delete modal:', error);
+        showErrorMessage('Unable to show delete confirmation. Please try again.');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // User delete buttons
+    document.querySelectorAll('.delete-user-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const userId = button.dataset.userId;
+            const userEmail = button.dataset.userEmail;
+            if (!userId || !userEmail) {
+                console.error('Missing user data attributes');
+                showErrorMessage('Unable to delete user. Missing required information.');
+                return;
+            }
+            confirmDeleteUser(userId, userEmail);
+        });
+    });
+
+    // Team delete buttons
+    document.querySelectorAll('.delete-team-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const teamId = button.dataset.teamId;
+            const teamName = button.dataset.teamName;
+            if (!teamId || !teamName) {
+                console.error('Missing team data attributes');
+                showErrorMessage('Unable to delete team. Missing required information.');
+                return;
+            }
+            confirmDeleteTeam(teamId, teamName);
+        });
+    });
+
+    // Club delete buttons
+    document.querySelectorAll('.delete-club-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const clubId = button.dataset.clubId;
+            const clubName = button.dataset.clubName;
+            if (!clubId || !clubName) {
+                console.error('Missing club data attributes');
+                showErrorMessage('Unable to delete club. Missing required information.');
+                return;
+            }
+            confirmDeleteClub(clubId, clubName);
+        });
+    });
+
+    // Association delete buttons
+    document.querySelectorAll('.delete-association-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const associationId = button.dataset.associationId;
+            const associationName = button.dataset.associationName;
+            if (!associationId || !associationName) {
+                console.error('Missing association data attributes');
+                showErrorMessage('Unable to delete association. Missing required information.');
+                return;
+            }
+            confirmDeleteAssociation(associationId, associationName);
+        });
+    });
+
+    // Add tab persistence logic
+    // Track active tab changes
+    const tabLinks = document.querySelectorAll('.nav-link');
+    tabLinks.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('href').replace('#', '');
+            document.getElementById('activeTab').value = tabId;
+        });
+    });
+});
+</script>
+{% endblock %}

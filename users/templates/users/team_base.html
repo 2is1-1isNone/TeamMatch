@@ -1,0 +1,33 @@
+{% extends "users/base.html" %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Side Navigation -->
+        <div class="col-md-2 d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_tab == 'profile' %}active{% endif %}" 
+                           href="{% url 'team_profile' team.id %}">
+                            <i class="fas fa-users me-2"></i>Team Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_tab == 'calendar' %}active{% endif %}" 
+                           href="{% url 'team_calendar' team.id %}">
+                            <i class="fas fa-calendar-alt me-2"></i>Calendar
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-md-10 ms-sm-auto px-md-4">
+            {% block team_content %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}

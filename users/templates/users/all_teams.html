@@ -1,0 +1,45 @@
+{% extends "users/base.html" %}
+{% block content %}
+<h2>All Teams</h2>
+
+<form method="get" class="mb-3">
+    <select name="age_group" class="form-select d-inline w-auto">
+        <option value="">All Age Groups</option>
+        {% for value, label in age_groups %}
+            <option value="{{ value }}" {% if selected_age_group == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="tier" class="form-select d-inline w-auto">
+        <option value="">All Tiers</option>
+        {% for value, label in tiers %}
+            <option value="{{ value }}" {% if selected_tier == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Team Name</th>
+            <th>Club</th>
+            <th>Age Group</th>
+            <th>Tier</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team in teams %}
+        <tr>
+            <td> <a href="{% url 'team_page' team.id %}">{{ team.name }}</a></td>
+            <td>{{ team.club.name }}</td>
+            <td>{{ team.get_age_group_display }}</td>
+            <td>{{ team.get_tier_display }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4">No teams found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
