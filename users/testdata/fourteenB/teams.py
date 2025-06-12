@@ -9,14 +9,17 @@ TEAMS_DATA = [
         'season': '2024-2025',
         'description': 'This is the description field',
         'home_dates': [
-            '2025-06-07', '2025-06-08',
-            '2025-06-21', '2025-06-22'
+            {'date': '2025-06-07', 'allow_doubleheader': False},
+            {'date': '2025-06-08', 'allow_doubleheader': False},
+            {'date': '2025-06-21', 'allow_doubleheader': False},
+            {'date': '2025-06-22', 'allow_doubleheader': False},
         ],
         'away_dates': [
-            '2025-07-05', '2025-07-06',
-            '2025-06-28', '2025-06-29'
-        ]
-    },
+            {'date': '2025-07-05', 'allow_doubleheader': False},
+            {'date': '2025-07-06', 'allow_doubleheader': False},
+            {'date': '2025-06-28', 'allow_doubleheader': False},
+            {'date': '2025-06-29', 'allow_doubleheader': False}
+        ]    },
     {
         'name': 'Seattle Mets 14U B',
         'club_name': 'Seattle Metros Club',
@@ -26,14 +29,17 @@ TEAMS_DATA = [
         'season': '2024-2025',
         'description': 'This is the description field',
         'home_dates': [
-            '2025-07-05', '2025-07-06',
-            '2025-07-19', '2025-07-20'
+            {'date': '2025-07-05', 'allow_doubleheader': False},
+            {'date': '2025-07-06', 'allow_doubleheader': False},
+            {'date': '2025-07-19', 'allow_doubleheader': False},
+            {'date': '2025-07-20', 'allow_doubleheader': False},
         ],
         'away_dates': [
-            '2025-06-07', '2025-06-08',
-            '2025-06-14', '2025-06-15',
-        ]
-    },
+            {'date': '2025-06-07', 'allow_doubleheader': False},
+            {'date': '2025-06-08', 'allow_doubleheader': False},
+            {'date': '2025-06-14', 'allow_doubleheader': False},
+            {'date': '2025-06-15', 'allow_doubleheader': False}
+        ]    },
     {
         'name': 'Tacoma Rockets 14U B',
         'club_name': 'Tacoma Junior Hockey Club',
@@ -43,12 +49,16 @@ TEAMS_DATA = [
         'season': '2024-2025',
         'description': 'This is the description field',
         'home_dates': [
-            '2025-06-14', '2025-06-15',
-            '2025-06-28', '2025-06-29'
+            {'date': '2025-06-14', 'allow_doubleheader': False},
+            {'date': '2025-06-15', 'allow_doubleheader': False},
+            {'date': '2025-06-28', 'allow_doubleheader': False},
+            {'date': '2025-06-29', 'allow_doubleheader': False}
         ],
         'away_dates': [
-            '2025-06-21', '2025-06-22',
-            '2025-07-19', '2025-07-20'
+            {'date': '2025-06-21', 'allow_doubleheader': False},
+            {'date': '2025-06-22', 'allow_doubleheader': False},
+            {'date': '2025-07-19', 'allow_doubleheader': False},
+            {'date': '2025-07-20', 'allow_doubleheader': False}
         ]
     }
 ]

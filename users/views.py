@@ -205,7 +205,6 @@ def billing(request):
 @login_required
 def team_calendar(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    
     # Get existing dates
     team_dates = TeamDate.objects.filter(team=team)
     team_dates_json = [
@@ -213,10 +212,10 @@ def team_calendar(request, team_id):
             'title': 'Home Game' if date.is_home else 'Away Game',
             'start': date.date.strftime('%Y-%m-%d'),
             'allDay': True,
-            'color': '#0d6efd' if date.is_home else '#ffb366'
+            'color': '#0d6efd' if date.is_home else '#ffb366',
+            'allow_doubleheader': date.allow_doubleheader
         } for date in team_dates
     ]
-    
     context = {
         'team': team,
         'team_dates_json': json.dumps(team_dates_json)
@@ -230,19 +229,19 @@ def save_team_dates(request, team_id):
     data = json.loads(request.body)
     date_str = data.get('date')
     is_home = data.get('is_home')
-    
+    allow_doubleheader = data.get('allow_doubleheader', False)
+     
     try:
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-        
         if is_home is None:
             # Delete the date
             TeamDate.objects.filter(team=team, date=date_obj).delete()
         else:
-            # Create or update the date
-            TeamDate.objects.update_or_create(
+            # Create or update the date, including allow_doubleheader
+            obj, created = TeamDate.objects.update_or_create(
                 team=team,
                 date=date_obj,
-                defaults={'is_home': is_home}
+                defaults={'is_home': is_home, 'allow_doubleheader': allow_doubleheader}
             )
         return JsonResponse({'success': True})
     except Exception as e:
@@ -513,16 +512,17 @@ def generate_league_schedule(request, age_group, tier):
     
     scheduler = LeagueScheduler(age_group, tier)
     schedule, unscheduled_matches = scheduler.create_schedule()
-    
-    # New code to include teams' availability dates
+      # New code to include teams' availability dates with doubleheader info
     teams_with_availability = []
     for team in teams:
-        home_dates = TeamDate.objects.filter(team=team, is_home=True).values_list('date', flat=True)
-        away_dates = TeamDate.objects.filter(team=team, is_home=False).values_list('date', flat=True)
+        # Get home dates with doubleheader info
+        home_date_objects = TeamDate.objects.filter(team=team, is_home=True).values('date', 'allow_doubleheader')
+        away_date_objects = TeamDate.objects.filter(team=team, is_home=False).values('date', 'allow_doubleheader')
+        
         teams_with_availability.append({
             'team': team,
-            'home_dates': home_dates,
-            'away_dates': away_dates
+            'home_dates': home_date_objects,
+            'away_dates': away_date_objects
         })
 
     if unscheduled_matches:
@@ -609,25 +609,49 @@ def league_calendar(request, age_group, tier):
     if request.user not in association.admins.all():
         messages.error(request, "You must be an association admin to access the league calendar")
         return redirect('dashboard')
+    
     scheduler = LeagueScheduler(age_group, tier)
     schedule, _ = scheduler.create_schedule()
-    # Serialize schedule to JSON for FullCalendar
+      # Serialize schedule to JSON for FullCalendar
     events = []
     for match in schedule:
+        # Set title and color based on game type
+        match_type = match.get('type', 'standard')
+        
+        if match_type in ['doubleheader_home_series', 'doubleheader_away_series']:
+            title = f"DH Series: {match['home_team'].name} vs {match['away_team'].name}"
+            color = '#28a745' if match_type == 'doubleheader_home_series' else '#ff6b35'  # Green for home DH series, bright orange for away DH series
+        elif match_type in ['doubleheader_home', 'doubleheader_away']:
+            title = f"DH: {match['home_team'].name} vs {match['away_team'].name}"
+            color = '#dc3545' if match_type == 'doubleheader_home' else '#fd7e14'  # Red for home DH, orange for away DH
+        else:
+            title = f"{match['home_team'].name} vs {match['away_team'].name}"
+            color = '#0d6efd'  # Blue for series/standard games
+            
+        # Handle the date format - matches have 'dates' array for series
+        match_dates = match.get('dates', [])
+        if not match_dates:
+            continue  # Skip if no dates
+            
         event = {
-            'title': f"{match['home_team'].name} vs {match['away_team'].name}",
-            'start': date_format(match['dates'][0], 'Y-m-d'),
+            'title': title,
+            'start': date_format(match_dates[0], 'Y-m-d'),
             'allDay': True,
+            'color': color,
             'extendedProps': {
                 'home': match['home_team'].name,
-                'away': match['away_team'].name
+                'away': match['away_team'].name,
+                'type': match_type
             }
         }
-        if len(match['dates']) > 1:
+        
+        # Handle multi-day series
+        if len(match_dates) > 1:
             # FullCalendar expects end to be exclusive, so add one day
             from datetime import timedelta
-            end_date = match['dates'][1] + timedelta(days=1)
+            end_date = match_dates[1] + timedelta(days=1)
             event['end'] = date_format(end_date, 'Y-m-d')
+            
         events.append(event)
     events_json = json.dumps(events)
     return render(request, 'users/league_calendar.html', {

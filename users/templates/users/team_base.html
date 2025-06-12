@@ -5,6 +5,7 @@
 <div class="container-fluid">
     <div class="row">
         <!-- Side Navigation -->
+        {% if team %}
         <div class="col-md-2 d-md-block bg-light sidebar">
             <div class="position-sticky pt-3">
                 <ul class="nav flex-column">
@@ -23,9 +24,10 @@
                 </ul>
             </div>
         </div>
+        {% endif %}
 
         <!-- Main Content Area -->
-        <div class="col-md-10 ms-sm-auto px-md-4">
+        <div class="col-md-{% if team %}10{% else %}12{% endif %} {% if team %}ms-sm-auto{% endif %} px-md-4">
             {% block team_content %}{% endblock %}
         </div>
     </div>

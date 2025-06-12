@@ -91,16 +91,30 @@ def insert_team_dates():
         team = Team.objects.filter(name=team_data['name']).first()
         if team:
             # Insert home dates
-            for home_date in team_data['home_dates']:
-                if not TeamDate.objects.filter(team=team, date=home_date, is_home=True).exists():
-                    print(f"Adding home date {home_date} for team {team.name}")
-                    TeamDate.objects.create(team=team, date=home_date, is_home=True)
+            for home_date_info in team_data['home_dates']:
+                date_str = home_date_info['date']
+                allow_doubleheader = home_date_info['allow_doubleheader']
+                if not TeamDate.objects.filter(team=team, date=date_str, is_home=True).exists():
+                    print(f"Adding home date {date_str} (DH: {allow_doubleheader}) for team {team.name}")
+                    TeamDate.objects.create(
+                        team=team, 
+                        date=date_str, 
+                        is_home=True, 
+                        allow_doubleheader=allow_doubleheader
+                    )
 
             # Insert away dates
-            for away_date in team_data['away_dates']:
-                if not TeamDate.objects.filter(team=team, date=away_date, is_home=False).exists():
-                    print(f"Adding away date {away_date} for team {team.name}")
-                    TeamDate.objects.create(team=team, date=away_date, is_home=False)
+            for away_date_info in team_data['away_dates']:
+                date_str = away_date_info['date']
+                allow_doubleheader = away_date_info['allow_doubleheader']
+                if not TeamDate.objects.filter(team=team, date=date_str, is_home=False).exists():
+                    print(f"Adding away date {date_str} (DH: {allow_doubleheader}) for team {team.name}")
+                    TeamDate.objects.create(
+                        team=team, 
+                        date=date_str, 
+                        is_home=False, 
+                        allow_doubleheader=allow_doubleheader
+                    )
 
 # Insert users
 def insert_users():

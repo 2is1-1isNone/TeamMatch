@@ -85,6 +85,7 @@ class TeamDate(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='dates')
     date = models.DateField()
     is_home = models.BooleanField(default=True)
+    allow_doubleheader = models.BooleanField(default=False)  # <-- Add this line
 
     class Meta:
         ordering = ['date']

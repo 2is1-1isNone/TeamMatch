@@ -29,6 +29,7 @@
             <tr>
                 <th>Date</th>
                 <th>Home/Away</th>
+                <th>Allow Doubleheader</th>
             </tr>
         </thead>
         <tbody id="dateTableBody">
@@ -45,7 +46,8 @@ let events = JSON.parse('{{ team_dates_json|escapejs }}') || [];
 // Update event colors to use light blue for home and light orange for away
 events = events.map(ev => ({
     ...ev,
-    color: ev.title === 'Home Game' ? '#87CEFA' : '#ffb366' // Light blue for home, light orange for away
+    color: ev.title === 'Home Game' ? '#87CEFA' : '#ffb366',
+    allow_doubleheader: ev.allow_doubleheader || false
 }));
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -76,11 +78,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (existingEventIndex !== -1) {
                 // Remove existing event
-                events.splice(existingEventIndex, 1);
-                info.dayEl.style.backgroundColor = '';
+                events.splice(existingEventIndex, 1);                info.dayEl.style.backgroundColor = '';
                 info.dayEl.style.color = '';
+                removeDoubleheaderIndicator(info.dayEl);
                 // Delete from database
-                saveToDatabase(info.dateStr, null);
+                saveToDatabase(info.dateStr, null, false);
             } else {
                 // Add new event
                 const isHome = mode === 'home';
@@ -88,12 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     title: isHome ? 'Home Game' : 'Away Game',
                     start: info.dateStr,
                     allDay: true,
-                    color: isHome ? '#87CEFA' : '#ffb366'
+                    color: isHome ? '#87CEFA' : '#ffb366',
+                    allow_doubleheader: false
                 });
                 info.dayEl.style.backgroundColor = isHome ? '#87CEFA' : '#ffb366';
-                info.dayEl.style.color = '#000';  // Changed to black text
-                // Save to database
-                saveToDatabase(info.dateStr, isHome);
+                info.dayEl.style.color = '#000';
+                // Save to database with allow_doubleheader false
+                saveToDatabase(info.dateStr, isHome, false);
             }
         },
         dayCellDidMount: function(arg) {
@@ -102,6 +105,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (event) {
                 arg.el.style.backgroundColor = event.color;
                 arg.el.style.color = '#000';  // Black text for contrast
+                
+                // Add doubleheader indicator if enabled
+                if (event.allow_doubleheader) {
+                    addDoubleheaderIndicator(arg.el);
+                }
             }
         },
         datesSet: function() {
@@ -111,6 +119,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (cell) {
                     cell.style.backgroundColor = event.color;
                     cell.style.color = '#000';  // Changed to black text
+                    
+                    // Add doubleheader indicator if enabled
+                    if (event.allow_doubleheader) {
+                        addDoubleheaderIndicator(cell);
+                    }
                 }
             });
         }
@@ -140,14 +153,85 @@ document.addEventListener('DOMContentLoaded', function() {
     awayLabel.addEventListener('click', function() {
         toggle.checked = true;
         toggle.dispatchEvent(new Event('change'));
-    });
-
-    // Set initial state
+    });    // Set initial state
     homeLabel.style.opacity = 1;
     awayLabel.style.opacity = 0.5;
 
+    // Function to add doubleheader indicator
+    function addDoubleheaderIndicator(cellElement) {
+        // Remove existing indicator if present
+        const existingIndicator = cellElement.querySelector('.doubleheader-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }        // Create doubleheader indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'doubleheader-indicator';
+        indicator.innerHTML = 'DH'; // "DH" text to indicate doubleheader
+        indicator.title = 'Allow for Double Header'; // Tooltip text
+        indicator.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            line-height: 1;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 3px;
+            width: 20px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #666;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            z-index: 10;
+            cursor: help;
+        `;
+        
+        // Ensure the cell has relative positioning
+        cellElement.style.position = 'relative';
+        cellElement.appendChild(indicator);
+    }    // Function to remove doubleheader indicator
+    function removeDoubleheaderIndicator(cellElement) {
+        const indicator = cellElement.querySelector('.doubleheader-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    // Add double-click handler for calendar cells to toggle doubleheader
+    document.addEventListener('dblclick', function(e) {
+        const calendarCell = e.target.closest('.fc-daygrid-day');
+        if (calendarCell) {
+            const dateStr = calendarCell.getAttribute('data-date');
+            const event = events.find(ev => ev.start === dateStr);
+            
+            if (event) {
+                // Toggle doubleheader setting
+                event.allow_doubleheader = !event.allow_doubleheader;
+                
+                // Update visual indicator
+                if (event.allow_doubleheader) {
+                    addDoubleheaderIndicator(calendarCell);
+                } else {
+                    removeDoubleheaderIndicator(calendarCell);
+                }
+                
+                // Save to database
+                saveToDatabase(dateStr, event.title === 'Home Game', event.allow_doubleheader);
+                
+                // Update table view if visible
+                if (tableView.style.display !== 'none') {
+                    updateTableView();
+                }
+            }
+        }
+    });
+
     // Add this function before calendar.render()
-    function saveToDatabase(dateStr, isHome) {
+    function saveToDatabase(dateStr, isHome, allowDoubleheader) {
         fetch(`/team/{{ team.id }}/save-dates/`, {
             method: 'POST',
             headers: {
@@ -156,7 +240,8 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({
                 date: dateStr,
-                is_home: isHome
+                is_home: isHome,
+                allow_doubleheader: allowDoubleheader
             })
         })
         .then(response => response.json())
@@ -177,29 +262,48 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateTableView() {
         const tableBody = document.getElementById('dateTableBody');
         tableBody.innerHTML = '';
-        
-        // Sort events by date
         const sortedEvents = [...events].sort((a, b) => a.start.localeCompare(b.start));
-        
-        sortedEvents.forEach(event => {
-            const row = document.createElement('tr');
+        sortedEvents.forEach((event, idx) => {            const row = document.createElement('tr');
             const dateCell = document.createElement('td');
             const typeCell = document.createElement('td');
+            const doubleheaderCell = document.createElement('td');
             
-            // Format date as MM/DD/YYYY
-            const date = new Date(event.start);
+            // Parse date properly to avoid timezone issues
+            const dateParts = event.start.split('-');
+            const year = parseInt(dateParts[0]);
+            const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+            const day = parseInt(dateParts[2]);
+            const date = new Date(year, month, day);
+            
             const formattedDate = date.toLocaleDateString('en-US', {
                 month: '2-digit',
                 day: '2-digit',
                 year: 'numeric'
             });
-            
             dateCell.textContent = formattedDate;
             typeCell.textContent = event.title === 'Home Game' ? 'Home' : 'Away';
             typeCell.style.color = event.title === 'Home Game' ? '#87CEFA' : '#ffb366';
-            
+            // Doubleheader checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = !!event.allow_doubleheader;            checkbox.addEventListener('change', function() {
+                event.allow_doubleheader = this.checked;
+                saveToDatabase(event.start, event.title === 'Home Game', event.allow_doubleheader);
+                
+                // Update calendar view indicator
+                const calendarCell = document.querySelector(`.fc-daygrid-day[data-date="${event.start}"]`);
+                if (calendarCell) {
+                    if (this.checked) {
+                        addDoubleheaderIndicator(calendarCell);
+                    } else {
+                        removeDoubleheaderIndicator(calendarCell);
+                    }
+                }
+            });
+            doubleheaderCell.appendChild(checkbox);
             row.appendChild(dateCell);
             row.appendChild(typeCell);
+            row.appendChild(doubleheaderCell);
             tableBody.appendChild(row);
         });
     }
@@ -217,12 +321,10 @@ document.addEventListener('DOMContentLoaded', function() {
         calendarViewBtn.classList.remove('active');
         tableViewBtn.classList.add('active');
         updateTableView();
-    });
-
-    // Update table when events change
+    });    // Update table when events change
     const originalSaveToDatabase = saveToDatabase;
-    saveToDatabase = function(dateStr, isHome) {
-        originalSaveToDatabase(dateStr, isHome);
+    saveToDatabase = function(dateStr, isHome, allowDoubleheader) {
+        originalSaveToDatabase(dateStr, isHome, allowDoubleheader);
         if (tableView.style.display !== 'none') {
             updateTableView();
         }
@@ -233,7 +335,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <p class="mt-3 text-muted">
-    Click "Home" or "Away" then click a date to add games. Click a colored cell to remove it.
+    Click "Home" or "Away" then click a date to add games. Click a colored cell to remove it.<br>
+    <strong>DH Doubleheader Feature:</strong> Double-click a colored date to toggle allow doubleheader (shown with DH indicator). Use table view for easier management.
 </p>
 {% if user in team.admins.all %}
     <a href="{% url 'edit_team' team.id %}" class="btn btn-warning mb-3">Edit Team</a>

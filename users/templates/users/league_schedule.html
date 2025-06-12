@@ -45,12 +45,12 @@
     <a href="#" class="btn btn-primary active" aria-current="page">Table View</a>
     <a href="{% url 'league_calendar' age_group tier %}" class="btn btn-outline-primary">Calendar View</a>
 </div>
-<table class="table table-striped">
-    <thead>
+<table class="table table-striped">    <thead>
         <tr>
             <th>Home Team</th>
             <th>Away Team</th>
             <th>Dates</th>
+            <th>Type</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -59,7 +59,21 @@
         <tr>
             <td>{{ match.home_team.name }}</td>
             <td>{{ match.away_team.name }}</td>
-            <td>{{ match.dates|join:", " }}</td>
+            <td>{{ match.dates|join:", " }}</td>            <td>
+                {% if match.type == 'doubleheader_home_series' %}
+                    <span class="badge bg-success">Doubleheader Series (Home)</span>
+                {% elif match.type == 'doubleheader_away_series' %}
+                    <span class="badge bg-warning">Doubleheader Series (Away)</span>
+                {% elif match.type == 'doubleheader_home' %}
+                    <span class="badge bg-info">Doubleheader (Home)</span>
+                {% elif match.type == 'doubleheader_away' %}
+                    <span class="badge bg-warning">Doubleheader (Away)</span>
+                {% elif match.type == 'series' %}
+                    <span class="badge bg-primary">Series</span>
+                {% else %}
+                    <span class="badge bg-secondary">Standard</span>
+                {% endif %}
+            </td>
             <td>{{ match.status }}</td>
         </tr>
         {% endfor %}
@@ -99,12 +113,19 @@
             <th>Away Availability</th>
         </tr>
     </thead>
-    <tbody>
-        {% for team_data in teams_with_availability %}
+    <tbody>        {% for team_data in teams_with_availability %}
         <tr>
             <td>{{ team_data.team.name }}</td>
-            <td>{{ team_data.home_dates|join:", " }}</td>
-            <td>{{ team_data.away_dates|join:", " }}</td>
+            <td>
+                {% for date_info in team_data.home_dates %}
+                    {{ date_info.date }}{% if date_info.allow_doubleheader %} (DH){% endif %}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </td>
+            <td>
+                {% for date_info in team_data.away_dates %}
+                    {{ date_info.date }}{% if date_info.allow_doubleheader %} (DH){% endif %}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>
