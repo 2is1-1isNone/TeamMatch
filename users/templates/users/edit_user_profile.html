@@ -1,0 +1,137 @@
+{% extends "users/base.html" %}
+{% block title %}Edit Profile{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-edit me-2"></i>Edit Profile</h4>
+            </div>
+            <div class="card-body">
+                <!-- Display any messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Email Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-envelope me-2"></i>Email Address</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ user.email }}" placeholder="Enter your email address">
+                            <div class="form-text">This will be used for login and notifications.</div>
+                        </div>
+                    </div>
+
+                    <!-- Password Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-lock me-2"></i>Change Password</h5>
+                            <p class="text-muted">Leave password fields empty if you don't want to change your password.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password" 
+                                   placeholder="Enter current password">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" 
+                                   placeholder="Enter new password">
+                            <div class="form-text">Minimum 8 characters.</div>
+                        </div>
+                        <div class="col-md-6 mt-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
+                                   placeholder="Confirm new password">
+                        </div>
+                    </div>
+
+                    <!-- Account Info (Read-only) -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-info-circle me-2"></i>Account Information</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                            <div class="form-text">Username cannot be changed.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Member Since</label>
+                            <input type="text" class="form-control" value="{{ user.date_joined|date:'F d, Y' }}" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'user_profile' %}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add some client-side validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const currentPassword = document.getElementById('current_password');
+    const newPassword = document.getElementById('new_password');
+    const confirmPassword = document.getElementById('confirm_password');
+
+    form.addEventListener('submit', function(e) {
+        // If any password field is filled, all must be filled
+        const hasCurrentPassword = currentPassword.value.trim() !== '';
+        const hasNewPassword = newPassword.value.trim() !== '';
+        const hasConfirmPassword = confirmPassword.value.trim() !== '';
+
+        if (hasCurrentPassword || hasNewPassword || hasConfirmPassword) {
+            if (!hasCurrentPassword) {
+                alert('Please enter your current password.');
+                e.preventDefault();
+                currentPassword.focus();
+                return;
+            }
+            if (!hasNewPassword) {
+                alert('Please enter a new password.');
+                e.preventDefault();
+                newPassword.focus();
+                return;
+            }
+            if (!hasConfirmPassword) {
+                alert('Please confirm your new password.');
+                e.preventDefault();
+                confirmPassword.focus();
+                return;
+            }
+            if (newPassword.value !== confirmPassword.value) {
+                alert('New passwords do not match.');
+                e.preventDefault();
+                confirmPassword.focus();
+                return;
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}

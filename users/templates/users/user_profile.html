@@ -1,0 +1,60 @@
+{% extends "users/base.html" %}
+{% block title %}User Profile{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-user-circle me-2"></i>User Profile</h4>
+            </div>
+            <div class="card-body">
+                <!-- Display any messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Username:</strong></label>
+                    <p class="form-control-plaintext">{{ user.username }}</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Email:</strong></label>
+                    <p class="form-control-plaintext">{{ user.email|default:"Not set" }}</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>First Name:</strong></label>
+                    <p class="form-control-plaintext">{{ user.first_name|default:"Not set" }}</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Last Name:</strong></label>
+                    <p class="form-control-plaintext">{{ user.last_name|default:"Not set" }}</p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Member Since:</strong></label>
+                    <p class="form-control-plaintext">{{ user.date_joined|date:"F d, Y" }}</p>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'edit_user_profile' %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>Edit Profile
+                    </a>
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
