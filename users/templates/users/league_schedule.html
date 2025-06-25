@@ -147,11 +147,21 @@
         {% endfor %}
     </tbody>
 </table>
+<div class="mt-3">
+    <button type="button" class="btn btn-warning" id="sendNotificationBtn">
+        <i class="fas fa-envelope"></i> Send Notification to Teams
+    </button>
+</div>
 {% else %}
 <p>No unscheduled matches found!</p>
 {% endif %}
 
 <h2>Team Availability</h2>
+<div class="alert alert-info mb-3">
+    <i class="fas fa-info-circle"></i> 
+    <strong>League Requirements:</strong> Each team needs <strong>{{ teams_with_availability.0.required_series|default:"0" }} home weekend series</strong> and <strong>{{ teams_with_availability.0.required_series|default:"0" }} away weekend series</strong> to schedule against all other teams.
+    <small class="d-block mt-1">A weekend series consists of consecutive dates (e.g., Saturday-Sunday).</small>
+</div>
 <table class="table table-bordered">
     <thead>
         <tr>
@@ -167,16 +177,48 @@
                 {% for date_info in team_data.home_dates %}
                     {{ date_info.date }}{% if date_info.allow_doubleheader %} (DH){% endif %}{% if not forloop.last %}, {% endif %}
                 {% endfor %}
+                {% if team_data.home_series_needed > 0 %}
+                    <div class="mt-1">
+                        <span class="badge bg-warning text-dark">
+                            <i class="fas fa-exclamation-triangle"></i> Needs {{ team_data.home_series_needed }} more weekend series
+                        </span>
+                    </div>
+                {% else %}
+                    <div class="mt-1">
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> {{ team_data.available_home_series }}/{{ team_data.required_series }} series available
+                        </span>
+                    </div>
+                {% endif %}
             </td>
             <td>
                 {% for date_info in team_data.away_dates %}
                     {{ date_info.date }}{% if date_info.allow_doubleheader %} (DH){% endif %}{% if not forloop.last %}, {% endif %}
                 {% endfor %}
+                {% if team_data.away_series_needed > 0 %}
+                    <div class="mt-1">
+                        <span class="badge bg-warning text-dark">
+                            <i class="fas fa-exclamation-triangle"></i> Needs {{ team_data.away_series_needed }} more weekend series
+                        </span>
+                    </div>
+                {% else %}
+                    <div class="mt-1">
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> {{ team_data.available_away_series }}/{{ team_data.required_series }} series available
+                        </span>
+                    </div>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<div class="mt-3">
+    <button type="button" class="btn btn-info" id="sendAvailabilityNotificationBtn">
+        <i class="fas fa-envelope"></i> Send Notifications to Teams Needing More Availability
+    </button>
+</div>
 
 <div class="mt-4">
     <a href="{% url 'dashboard' %}" class="btn btn-secondary">
@@ -204,6 +246,76 @@ document.getElementById('generateScheduleBtn').addEventListener('click', functio
         this.innerHTML = 'Generate Schedule';
         alert("An error occurred: " + error.message);
     });
+});
+
+// Send notification to teams with unscheduled matches
+document.addEventListener('DOMContentLoaded', function() {
+    const sendNotificationBtn = document.getElementById('sendNotificationBtn');
+    if (sendNotificationBtn) {
+        sendNotificationBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to send email notifications to all teams with unscheduled matches?')) {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+                
+                fetch("{% url 'send_unscheduled_notifications' age_group tier season association.id %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "Content-Type": "application/json",
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`Success! Email notifications sent to ${data.teams_notified} teams.`);
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert("An error occurred: " + error.message);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-envelope"></i> Send Notification to Teams';
+                });
+            }
+        });
+    }
+
+    // Send notification to teams needing more availability
+    const sendAvailabilityNotificationBtn = document.getElementById('sendAvailabilityNotificationBtn');
+    if (sendAvailabilityNotificationBtn) {
+        sendAvailabilityNotificationBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to send email notifications to teams that need more weekend availability?')) {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+                
+                fetch("{% url 'send_availability_notifications' age_group tier season association.id %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "Content-Type": "application/json",
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`Success! Email notifications sent to ${data.teams_notified} teams that need more availability.`);
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert("An error occurred: " + error.message);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-envelope"></i> Send Notifications to Teams Needing More Availability';
+                });
+            }
+        });
+    }
 });
 
 function sortMatchesByDate() {

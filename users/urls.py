@@ -9,6 +9,8 @@ urlpatterns = [
     path('team/new/', views.team_profile, name='team_profile_create'),
     path('accounts/login/', auth_views.LoginView.as_view(authentication_form=EmailAuthenticationForm), name='login'),
     path('dashboard/', views.dashboard, name='dashboard'),  # <-- Add this line
+    path('profile/', views.user_profile, name='user_profile'),
+    path('profile/edit/', views.edit_user_profile, name='edit_user_profile'),
     path('team/<int:team_id>/delete/', views.delete_team, name='delete_team'),
     path('all_teams/', views.all_teams, name='all_teams'),
     path('users/', views.users_list, name='users'),
@@ -19,7 +21,8 @@ urlpatterns = [
     path('team/<int:team_id>/', views.team_profile, name='team_profile'),
     path('team/<int:team_id>/page/', views.team_page, name='team_page'),
     path('control_plane/', views.control_plane, name='control_plane'),
-    path('make_team_admin/', views.make_team_admin, name='make_team_admin'),
+    path('update-system-settings/', views.update_system_settings, name='update_system_settings'),
+    path('make-team-admin/', views.make_team_admin, name='make_team_admin'),
     path('make_club_admin/', views.make_club_admin, name='make_club_admin'),
     path('make_association_admin/', views.make_association_admin, name='make_association_admin'),
     path('user/<int:user_id>/edit/', views.edit_user, name='edit_user'),
@@ -34,5 +37,7 @@ urlpatterns = [
         views.generate_league_schedule, 
         name='league_schedule'),
     path('generate-schedule/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.generate_schedule_service, name='generate_schedule_service'),
+    path('send-unscheduled-notifications/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.send_unscheduled_notifications, name='send_unscheduled_notifications'),
+    path('send-availability-notifications/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.send_availability_notifications, name='send_availability_notifications'),
     path('league-calendar/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.league_calendar, name='league_calendar'),
 ]

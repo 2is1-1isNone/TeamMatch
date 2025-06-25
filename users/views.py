@@ -244,6 +244,20 @@ def billing(request):
 def team_calendar(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     
+    # Get the league scheduling state for this team's league
+    try:
+        league_state = LeagueSchedulingState.objects.get(
+            age_group=team.age_group,
+            tier=team.tier,
+            season=team.season,
+            association=team.club.association
+        )
+        availability_deadline = league_state.availability_deadline
+        # Convert to Pacific Time for display
+        availability_deadline_local = timezone.localtime(availability_deadline) if availability_deadline else None
+    except LeagueSchedulingState.DoesNotExist:
+        availability_deadline_local = None
+    
     # Get existing dates
     team_dates = TeamDate.objects.filter(team=team)
     team_dates_json = [
@@ -304,7 +318,8 @@ def team_calendar(request, team_id):
         'home_series_needed': home_series_needed,
         'away_series_needed': away_series_needed,
         'total_teams': total_teams,
-        'availability_notifications': availability_notifications
+        'availability_notifications': availability_notifications,
+        'availability_deadline': availability_deadline_local
     }
     return render(request, 'users/team_calendar.html', context)
 
@@ -405,6 +420,10 @@ def control_plane(request):
     teams = Team.objects.all().select_related('club')
     clubs = Club.objects.all().select_related('association')
     associations = Association.objects.all()
+    
+    # Get system settings
+    from users.models import SystemSettings
+    system_settings = SystemSettings.get_settings()
 
     users_data = [{
         'user': user,
@@ -417,7 +436,8 @@ def control_plane(request):
         'users_data': users_data,
         'teams': teams,
         'clubs': clubs,
-        'associations': associations
+        'associations': associations,
+        'system_settings': system_settings,
     })
 
 @staff_member_required
@@ -750,16 +770,56 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
     
     # If no existing schedule, initialize empty data structures
     
-    # New code to include teams' availability dates with doubleheader info
+    # New code to include teams' availability dates with doubleheader info and status
     teams_with_availability = []
+    total_teams = teams.count()
+    required_series = total_teams - 1  # Each team needs (N-1) home and (N-1) away series
+    
+    # Helper function to count weekend series from dates
+    def count_weekend_series(dates):
+        """Count actual weekend series (pairs of consecutive dates like Saturday-Sunday)"""
+        if len(dates) < 2:
+            return 0
+        
+        sorted_dates = sorted(dates)
+        series_count = 0
+        i = 0
+        
+        while i < len(sorted_dates) - 1:
+            # Check if current date and next date are consecutive (1 day apart)
+            if (sorted_dates[i + 1] - sorted_dates[i]).days == 1:
+                series_count += 1
+                i += 2  # Skip the next date since it's part of this series
+            else:
+                i += 1  # Move to next date
+        
+        return series_count
+    
     for team in teams:
         # Get home dates with doubleheader info
         home_date_objects = TeamDate.objects.filter(team=team, is_home=True).values('date', 'allow_doubleheader')
         away_date_objects = TeamDate.objects.filter(team=team, is_home=False).values('date', 'allow_doubleheader')
+        
+        # Extract dates for counting weekend series
+        home_dates = [obj['date'] for obj in home_date_objects]
+        away_dates = [obj['date'] for obj in away_date_objects]
+        
+        # Calculate availability status using weekend series count
+        available_home_series = count_weekend_series(home_dates)
+        available_away_series = count_weekend_series(away_dates)
+        
+        home_series_needed = max(0, required_series - available_home_series)
+        away_series_needed = max(0, required_series - available_away_series)
+        
         teams_with_availability.append({
             'team': team,
             'home_dates': home_date_objects,
-            'away_dates': away_date_objects
+            'away_dates': away_date_objects,
+            'home_series_needed': home_series_needed,
+            'away_series_needed': away_series_needed,
+            'available_home_series': available_home_series,
+            'available_away_series': available_away_series,
+            'required_series': required_series,
         })
 
     if unscheduled_matches:
@@ -1168,3 +1228,433 @@ def association_leagues(request, association_id):
         'leagues_json': json.dumps(leagues_with_data, default=str),
         'league_settings': league_settings,  # Add league settings to context
     })
+
+@login_required
+def user_profile(request):
+    """Display user profile page"""
+    return render(request, 'users/user_profile.html', {
+        'user': request.user
+    })
+
+@login_required  
+def edit_user_profile(request):
+    """Edit user profile - email and password"""
+    if request.method == 'POST':
+        # Handle email change
+        new_email = request.POST.get('email', '').strip()
+        if new_email and new_email != request.user.email:
+            # Check if email is already taken
+            if User.objects.filter(email=new_email).exclude(id=request.user.id).exists():
+                messages.error(request, 'This email address is already in use.')
+            else:
+                request.user.email = new_email
+                request.user.save()
+                messages.success(request, 'Email address updated successfully.')
+        
+        # Handle password change
+        current_password = request.POST.get('current_password', '')
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+        
+        if current_password and new_password and confirm_password:
+            # Check current password
+            if not request.user.check_password(current_password):
+                messages.error(request, 'Current password is incorrect.')
+            elif new_password != confirm_password:
+                messages.error(request, 'New passwords do not match.')
+            elif len(new_password) < 8:
+                messages.error(request, 'Password must be at least 8 characters long.')
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+                # Re-authenticate user after password change
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, request.user)
+                messages.success(request, 'Password updated successfully.')
+        
+        return redirect('user_profile')
+    
+    return render(request, 'users/edit_user_profile.html', {
+        'user': request.user
+    })
+
+@login_required
+@require_http_methods(["POST"])
+def send_unscheduled_notifications(request, age_group, tier, season, association_id):
+    """
+    Send email notifications to teams with unscheduled matches
+    """
+    import json
+    from django.http import JsonResponse
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from users.models import ScheduleMatch, GeneratedSchedule
+    
+    try:
+        # Get the association and validate access
+        try:
+            association = Association.objects.get(id=association_id)
+        except Association.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Association not found'})
+        
+        # Check if user is an association admin
+        if request.user not in association.admins.all():
+            return JsonResponse({'success': False, 'message': 'You must be an association admin to send notifications'})
+        
+        # Get the existing schedule
+        existing_schedule = GeneratedSchedule.objects.filter(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            is_active=True
+        ).first()
+        
+        if not existing_schedule:
+            return JsonResponse({'success': False, 'message': 'No active schedule found'})
+        
+        # Get unscheduled matches
+        unscheduled_matches = ScheduleMatch.objects.filter(
+            generated_schedule=existing_schedule,
+            status='unscheduled'
+        ).select_related('home_team', 'away_team')
+        
+        if not unscheduled_matches.exists():
+            return JsonResponse({'success': False, 'message': 'No unscheduled matches found'})
+        
+        # Collect all teams involved in unscheduled matches
+        teams_involved = set()
+        for match in unscheduled_matches:
+            teams_involved.add(match.home_team)
+            teams_involved.add(match.away_team)
+        
+        # Build the email content
+        subject = f'[{association.name}] Unscheduled Matches Notification - {age_group} {tier} ({season})'
+        
+        # Create a detailed message with all unscheduled matches
+        message_lines = [
+            f'Hello Team Members,',
+            f'',
+            f'This is an automated notification regarding unscheduled matches in the {association.name} {age_group} {tier} league for the {season} season.',
+            f'',
+            f'Your team is involved in matches that could not be scheduled due to conflicts:',
+            f'',
+        ]
+        
+        for match in unscheduled_matches:
+            message_lines.append(f'• {match.home_team.name} (Home) vs {match.away_team.name} (Away)')
+            if match.conflict_reason:
+                message_lines.append(f'  Status: {match.conflict_reason}')
+            message_lines.append('')
+        
+        message_lines.extend([
+            f'To resolve these scheduling conflicts:',
+            f'1. Team managers/admins should review your team\'s availability dates',
+            f'2. Add more weekend dates when your team can play',
+            f'3. Contact the league administrator if you need assistance',
+            f'',
+            f'Once teams have updated their availability, the schedule will be regenerated automatically.',
+            f'',
+            f'If you have any questions, please contact your team manager or the league administrator.',
+            f'',
+            f'Best regards,',
+            f'{association.name} League Management System'
+        ])
+        
+        message = '\n'.join(message_lines)
+        
+        # Send emails to team admins, managers, coaches, and all team members
+        teams_notified = 0
+        total_emails_sent = 0
+        
+        for team in teams_involved:
+            # Get all recipients with email addresses
+            recipients = []
+            
+            # Add team admins
+            for admin in team.admins.all():
+                if admin.email and admin.email not in recipients:
+                    recipients.append(admin.email)
+                    print(f"  📧 Added admin: {admin.email}")
+            
+            # Add team members
+            for member in team.members.all():
+                if member.email and member.email not in recipients:
+                    recipients.append(member.email)
+                    print(f"  📧 Added member: {member.email}")
+            
+            # Add managers if they exist (check if team has managers field)
+            if hasattr(team, 'managers'):
+                for manager in team.managers.all():
+                    if manager.email and manager.email not in recipients:
+                        recipients.append(manager.email)
+                        print(f"  📧 Added manager: {manager.email}")
+            
+            # Add coaches if they exist (check if team has coaches field)  
+            if hasattr(team, 'coaches'):
+                for coach in team.coaches.all():
+                    if coach.email and coach.email not in recipients:
+                        recipients.append(coach.email)
+                        print(f"  📧 Added coach: {coach.email}")
+            
+            print(f"🔍 Team {team.name}: Found {len(recipients)} email recipients")
+            
+            if recipients:
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=recipients,
+                        fail_silently=False
+                    )
+                    teams_notified += 1
+                    total_emails_sent += len(recipients)
+                    print(f"✅ Email sent to {team.name}: {recipients}")
+                except Exception as e:
+                    print(f"❌ Failed to send email to {team.name}: {e}")
+            else:
+                print(f"⚠️ No email addresses found for team {team.name}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Notifications sent to team members successfully',
+            'teams_notified': teams_notified,
+            'total_emails_sent': total_emails_sent
+        })
+        
+    except Exception as e:
+        print(f"❌ Error sending unscheduled match notifications: {e}")
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def send_availability_notifications(request, age_group, tier, season, association_id):
+    """
+    Send email notifications to teams that need more weekend availability
+    """
+    import json
+    from django.http import JsonResponse
+    from django.core.mail import send_mail
+    from django.conf import settings
+    
+    try:
+        # Get the association and validate access
+        try:
+            association = Association.objects.get(id=association_id)
+        except Association.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Association not found'})
+        
+        # Check if user is an association admin
+        if request.user not in association.admins.all():
+            return JsonResponse({'success': False, 'message': 'You must be an association admin to send notifications'})
+        
+        # Get teams for this league
+        teams = Team.objects.filter(
+            club__association=association,
+            age_group=age_group,
+            tier=tier,
+            season=season
+        )
+        
+        if not teams.exists():
+            return JsonResponse({'success': False, 'message': 'No teams found for this league'})
+        
+        # Calculate which teams need more availability
+        total_teams = teams.count()
+        required_series = total_teams - 1  # Each team needs (N-1) home and (N-1) away series
+        
+        # Helper function to count weekend series from dates
+        def count_weekend_series(dates):
+            """Count actual weekend series (pairs of consecutive dates like Saturday-Sunday)"""
+            if len(dates) < 2:
+                return 0
+            
+            sorted_dates = sorted(dates)
+            series_count = 0
+            i = 0
+            
+            while i < len(sorted_dates) - 1:
+                # Check if current date and next date are consecutive (1 day apart)
+                if (sorted_dates[i + 1] - sorted_dates[i]).days == 1:
+                    series_count += 1
+                    i += 2  # Skip the next date since it's part of this series
+                else:
+                    i += 1  # Move to next date
+            
+            return series_count
+        
+        # Find teams that need more availability
+        teams_needing_availability = []
+        
+        for team in teams:
+            # Get availability dates
+            home_dates = list(TeamDate.objects.filter(team=team, is_home=True).values_list('date', flat=True))
+            away_dates = list(TeamDate.objects.filter(team=team, is_home=False).values_list('date', flat=True))
+            
+            # Calculate availability status
+            available_home_series = count_weekend_series(home_dates)
+            available_away_series = count_weekend_series(away_dates)
+            
+            home_series_needed = max(0, required_series - available_home_series) 
+            away_series_needed = max(0, required_series - available_away_series)
+            
+            # If team needs more home or away availability, add to notification list
+            if home_series_needed > 0 or away_series_needed > 0:
+                teams_needing_availability.append({
+                    'team': team,
+                    'home_series_needed': home_series_needed,
+                    'away_series_needed': away_series_needed,
+                    'available_home_series': available_home_series,
+                    'available_away_series': available_away_series,
+                    'required_series': required_series
+                })
+        
+        if not teams_needing_availability:
+            return JsonResponse({'success': False, 'message': 'All teams have sufficient availability. No notifications sent.'})
+        
+        # Send emails to teams needing more availability
+        teams_notified = 0
+        total_emails_sent = 0
+        
+        for team_data in teams_needing_availability:
+            team = team_data['team']
+            
+            # Build personalized email content for this team
+            subject = f'[{association.name}] Weekend Availability Required - {age_group} {tier} ({season})'
+            
+            message_lines = [
+                f'Hello {team.name} Team Members,',
+                f'',
+                f'This is an automated notification regarding weekend availability for the {association.name} {age_group} {tier} league ({season} season).',
+                f'',
+                f'Your team currently needs to add more weekend availability dates:',
+                f'',
+            ]
+            
+            if team_data['home_series_needed'] > 0:
+                message_lines.append(f'• Home Weekend Series: Need {team_data["home_series_needed"]} more ({team_data["available_home_series"]}/{team_data["required_series"]} available)')
+            
+            if team_data['away_series_needed'] > 0: 
+                message_lines.append(f'• Away Weekend Series: Need {team_data["away_series_needed"]} more ({team_data["available_away_series"]}/{team_data["required_series"]} available)')
+            
+            message_lines.extend([
+                f'',
+                f'A weekend series consists of consecutive dates (e.g., Saturday-Sunday).',
+                f'',
+                f'To add more availability:',
+                f'1. Log into the team scheduling system',
+                f'2. Go to your team calendar',
+                f'3. Add weekend dates when your team can play home/away games',
+                f'4. Make sure to mark consecutive weekend dates (Saturday-Sunday pairs)',
+                f'',
+                f'Adding sufficient availability helps ensure all your matches can be scheduled.',
+                f'',
+                f'If you have any questions, please contact your team manager or the league administrator.',
+                f'',
+                f'Best regards,',
+                f'{association.name} League Management System'
+            ])
+            
+            message = '\n'.join(message_lines)
+            
+            # Get all recipients with email addresses
+            recipients = []
+            
+            # Add team admins
+            for admin in team.admins.all():
+                if admin.email and admin.email not in recipients:
+                    recipients.append(admin.email)
+            
+            # Add team members
+            for member in team.members.all():
+                if member.email and member.email not in recipients:
+                    recipients.append(member.email)
+            
+            # Add managers if they exist
+            if hasattr(team, 'managers'):
+                for manager in team.managers.all():
+                    if manager.email and manager.email not in recipients:
+                        recipients.append(manager.email)
+            
+            # Add coaches if they exist  
+            if hasattr(team, 'coaches'):
+                for coach in team.coaches.all():
+                    if coach.email and coach.email not in recipients:
+                        recipients.append(coach.email)
+            
+            print(f"🔍 Team {team.name}: Found {len(recipients)} email recipients (needs home: {team_data['home_series_needed']}, away: {team_data['away_series_needed']})")
+            
+            if recipients:
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=recipients,
+                        fail_silently=False
+                    )
+                    teams_notified += 1
+                    total_emails_sent += len(recipients)
+                    print(f"✅ Availability notification sent to {team.name}: {recipients}")
+                except Exception as e:
+                    print(f"❌ Failed to send availability notification to {team.name}: {e}")
+            else:
+                print(f"⚠️ No email addresses found for team {team.name}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Availability notifications sent successfully',
+            'teams_notified': teams_notified,
+            'total_emails_sent': total_emails_sent
+        })
+        
+    except Exception as e:
+        print(f"❌ Error sending availability notifications: {e}")
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@staff_member_required
+def update_system_settings(request):
+    """
+    Update system settings like scheduler check interval
+    """
+    if not request.user.is_superuser:
+        messages.error(request, "Access denied. Superuser privileges required.")
+        return redirect('dashboard')
+    
+    try:
+        from users.models import SystemSettings
+        
+        # Get or create system settings
+        system_settings = SystemSettings.get_settings()
+        
+        # Update the settings
+        system_settings.scheduler_check_interval = int(request.POST.get('scheduler_check_interval', 10))
+        system_settings.scheduler_interval_unit = request.POST.get('scheduler_interval_unit', 'seconds')
+        system_settings.updated_by = request.user
+        system_settings.save()
+        
+        # Update the running background scheduler
+        try:
+            from users.apps import scheduler_instance
+            if scheduler_instance:
+                old_interval = scheduler_instance.check_interval
+                new_interval = scheduler_instance.update_check_interval()
+                messages.success(
+                    request, 
+                    f"System settings updated successfully! Scheduler interval changed from {old_interval} to {new_interval} seconds."
+                )
+            else:
+                messages.success(request, "System settings updated successfully!")
+        except Exception as e:
+            messages.warning(
+                request, 
+                f"Settings updated but failed to notify running scheduler: {str(e)}. Changes will take effect on next restart."
+            )
+        
+    except Exception as e:
+        messages.error(request, f"Failed to update system settings: {str(e)}")
+    
+    return redirect('control_plane')
