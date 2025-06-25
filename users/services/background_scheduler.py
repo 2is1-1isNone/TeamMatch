@@ -17,8 +17,20 @@ class BackgroundScheduler:
     def __init__(self):
         self.thread = None
         self.running = False
-        self.check_interval = 10  # Check every 10 seconds for testing (was 60)
+        self.check_interval = self._get_check_interval()  # Get interval from system settings
         self.instance_id = id(self)  # Unique identifier for this instance
+    
+    def _get_check_interval(self):
+        """Get the current check interval from system settings"""
+        try:
+            from users.models import SystemSettings
+            settings = SystemSettings.get_settings()
+            interval = settings.scheduler_check_interval_seconds
+            logger.info(f"Background scheduler using interval: {interval} seconds ({settings.scheduler_check_interval} {settings.scheduler_interval_unit})")
+            return interval
+        except Exception as e:
+            logger.warning(f"Failed to get scheduler interval from settings, using default: {e}")
+            return 60  # Default to 60 seconds if settings can't be loaded
     
     def start(self):
         """Start the background scheduler thread"""
@@ -79,11 +91,21 @@ class BackgroundScheduler:
         print(f"📍 _run_scheduler thread starting for instance {self.instance_id}")
         logger.info(f"🤖 Background scheduler thread {self.instance_id} started - checking for deadline triggers every {self.check_interval} seconds")
         
+        settings_check_counter = 0
+        settings_check_interval = 10  # Check settings every 10 cycles
+        
         while self.running:
             try:
                 print(f"📍 _run_scheduler checking deadlines...")
                 self._check_deadlines()
                 print(f"📍 _run_scheduler finished checking deadlines")
+                
+                # Periodically check for settings updates
+                settings_check_counter += 1
+                if settings_check_counter >= settings_check_interval:
+                    self.update_check_interval()
+                    settings_check_counter = 0
+                    
             except Exception as e:
                 print(f"❌ Error in _run_scheduler: {e}")  
                 logger.error(f"❌ Error in background scheduler {self.instance_id}: {e}")
@@ -203,6 +225,15 @@ class BackgroundScheduler:
         league_state.task_scheduled = False
         league_state.save()
         logger.info(f"Cancelled deadline check for {league_state}")
+    
+    def update_check_interval(self):
+        """Update the check interval from system settings without restarting the scheduler"""
+        new_interval = self._get_check_interval()
+        if new_interval != self.check_interval:
+            old_interval = self.check_interval
+            self.check_interval = new_interval
+            logger.info(f"Background scheduler interval updated from {old_interval} to {new_interval} seconds")
+        return self.check_interval
 
 
 # Global scheduler instance

@@ -154,6 +154,23 @@ AUTHENTICATION_BACKENDS = [
 
 LOGOUT_REDIRECT_URL = '/'
 
+# Email Configuration
+# Choose email backend based on environment
+# For development/testing - uncomment the next line to print emails to console
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# For production - Gmail SMTP configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+
+# Set the default from email to your Gmail address
+DEFAULT_FROM_EMAIL = env('EMAIL_HOST_USER', default='noreply@teamschedule.local')
+ADMINS = [('TeamSchedule Admin', 'admin@teamschedule.local')]
+
 # Logging Configuration
 LOGGING = {
     'version': 1,

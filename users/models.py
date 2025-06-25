@@ -287,3 +287,51 @@ class ScheduleMatch(models.Model):
     def __str__(self):
         return f"{self.home_team.name} vs {self.away_team.name} - {self.dates}"
 
+
+class SystemSettings(models.Model):
+    """
+    System-wide configuration settings
+    """
+    INTERVAL_UNITS = [
+        ('seconds', 'Seconds'),
+        ('minutes', 'Minutes'), 
+        ('hours', 'Hours'),
+    ]
+    
+    scheduler_check_interval = models.IntegerField(
+        default=10,
+        help_text="How often the background scheduler checks for deadline triggers"
+    )
+    scheduler_interval_unit = models.CharField(
+        max_length=10,
+        choices=INTERVAL_UNITS,
+        default='seconds',
+        help_text="Time unit for scheduler check interval"
+    )
+    
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "System Settings"
+        verbose_name_plural = "System Settings"
+    
+    def __str__(self):
+        return f"System Settings (Updated: {self.updated_at})"
+    
+    @property
+    def scheduler_check_interval_seconds(self):
+        """Convert the interval to seconds for use by the scheduler"""
+        if self.scheduler_interval_unit == 'minutes':
+            return self.scheduler_check_interval * 60
+        elif self.scheduler_interval_unit == 'hours':
+            return self.scheduler_check_interval * 3600
+        else:  # seconds
+            return self.scheduler_check_interval
+    
+    @classmethod
+    def get_settings(cls):
+        """Get or create system settings instance"""
+        settings, created = cls.objects.get_or_create(pk=1)
+        return settings
+

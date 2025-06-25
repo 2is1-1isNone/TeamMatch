@@ -51,24 +51,43 @@ class ScheduleForm(forms.ModelForm):
         }
 
 class EmailAuthenticationForm(AuthenticationForm):
-    username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autofocus": True}))
+    username = forms.CharField(
+        label="Username or Email", 
+        widget=forms.TextInput(attrs={
+            "autofocus": True,
+            "placeholder": "Enter username or email"
+        })
+    )
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
         if username:
-            # Convert email to lowercase for case-insensitive authentication
+            # Convert to lowercase for case-insensitive authentication
             username = username.lower()
         return username
 
     def clean(self):
-        email = self.cleaned_data.get('username')
+        username_or_email = self.cleaned_data.get('username')
         password = self.cleaned_data.get('password')
-        if email and password:
-            self.user_cache = authenticate(self.request, username=email, password=password)
+        
+        if username_or_email and password:
+            # First try to authenticate with the value as-is (could be username)
+            self.user_cache = authenticate(self.request, username=username_or_email, password=password)
+            
+            # If that fails and the input looks like an email, try finding user by email
+            if self.user_cache is None and '@' in username_or_email:
+                try:
+                    # Find user by email and try authenticating with their username
+                    user = User.objects.get(email=username_or_email)
+                    self.user_cache = authenticate(self.request, username=user.username, password=password)
+                except User.DoesNotExist:
+                    pass
+            
             if self.user_cache is None:
-                raise forms.ValidationError("Invalid email or password.")
+                raise forms.ValidationError("Invalid username/email or password.")
             else:
                 self.confirm_login_allowed(self.user_cache)
+                
         return self.cleaned_data
 
 class ClubForm(forms.ModelForm):

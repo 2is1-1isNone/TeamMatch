@@ -13,6 +13,13 @@
     <!-- Dynamic notifications will be inserted here -->
 </div>
 
+<!-- Deadline Banner -->
+{% if availability_deadline %}
+<div class="alert alert-info mb-4" role="alert">
+    <strong>📅 Scheduling Deadline:</strong> Enter in as many home and away dates as you can so the scheduler has the best chance of finding matches. Your deadline for getting dates in is <strong>{{ availability_deadline|date:"m/d/Y" }} at {{ availability_deadline|time:"H:i:s" }}</strong>
+</div>
+{% endif %}
+
 <div class="mb-4 d-flex align-items-center">
     <span id="homeLabel" class="fw-bold me-2" style="color:#87CEFA; cursor:pointer;">Home</span>
     <div class="form-check form-switch">

@@ -16,6 +16,9 @@
         <li class="nav-item">
             <a class="nav-link" data-bs-toggle="tab" href="#associations">Associations</a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#system-settings">System Settings</a>
+        </li>
     </ul>
 
     <div class="tab-content">
@@ -192,6 +195,104 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- System Settings Tab -->
+        <div class="tab-pane" id="system-settings">
+            <h3>System Settings</h3>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs"></i> Background Scheduler Configuration
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{% url 'update_system_settings' %}">
+                                {% csrf_token %}
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="scheduler_check_interval" class="form-label">
+                                            <strong>Check Interval</strong>
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="scheduler_check_interval" 
+                                               name="scheduler_check_interval"
+                                               value="{{ system_settings.scheduler_check_interval }}"
+                                               min="1"
+                                               required>
+                                        <div class="form-text">How often the scheduler checks for deadline triggers</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label for="scheduler_interval_unit" class="form-label">
+                                            <strong>Time Unit</strong>
+                                        </label>
+                                        <select class="form-select" id="scheduler_interval_unit" name="scheduler_interval_unit">
+                                            <option value="seconds" {% if system_settings.scheduler_interval_unit == 'seconds' %}selected{% endif %}>Seconds</option>
+                                            <option value="minutes" {% if system_settings.scheduler_interval_unit == 'minutes' %}selected{% endif %}>Minutes</option>
+                                            <option value="hours" {% if system_settings.scheduler_interval_unit == 'hours' %}selected{% endif %}>Hours</option>
+                                        </select>
+                                        <div class="form-text">Time unit for the check interval</div>
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Update Settings
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <!-- Current Status Display -->
+                            <hr>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Current Interval:</h6>
+                                    <span class="badge bg-info">
+                                        {{ system_settings.scheduler_check_interval }} {{ system_settings.scheduler_interval_unit }}
+                                        ({{ system_settings.scheduler_check_interval_seconds }} seconds)
+                                    </span>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Last Updated:</h6>
+                                    {% if system_settings.updated_at %}
+                                        {{ system_settings.updated_at|date:"M d, Y g:i A" }}
+                                        {% if system_settings.updated_by %}
+                                            by {{ system_settings.updated_by.username }}
+                                        {% endif %}
+                                    {% else %}
+                                        <em>Never updated</em>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-info-circle"></i> Information
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p><small>The background scheduler runs continuously and checks for league availability deadlines that have passed.</small></p>
+                            <p><small><strong>Recommended Settings:</strong></small></p>
+                            <ul class="small">
+                                <li>Development: 10-30 seconds</li>
+                                <li>Production: 5-15 minutes</li>
+                                <li>Low-traffic: 30-60 minutes</li>
+                            </ul>
+                            <div class="alert alert-warning alert-sm">
+                                <small><i class="fas fa-exclamation-triangle"></i> Changes take effect immediately but may take up to the current interval to be noticed by the running scheduler.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

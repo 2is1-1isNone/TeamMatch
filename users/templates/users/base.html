@@ -15,7 +15,9 @@
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 {% if user.is_authenticated %}
                     <li class="nav-item me-3">
-                        <span class="navbar-text">{{ user.username }}</span>
+                        <a href="{% url 'user_profile' %}" class="navbar-text text-decoration-none">
+                            <i class="fas fa-user-circle me-1"></i>{{ user.username }}
+                        </a>
                     </li>
                     <li class="nav-item">
                         <form method="post" action="{% url 'logout' %}" style="display:inline;">
