@@ -20,7 +20,7 @@
                         <h4>Team Details</h4>
                         <table class="table">
                             <tr><th>Club:</th><td>{{ team.club.name }}</td></tr>
-                            <tr><th>Association:</th><td>{{ team.association.name }}</td></tr>
+                            <tr><th>Association:</th><td>{{ team.club.association.name }}</td></tr>
                         <tr><th>Age Group:</th><td>{{ team.age_group }}</td></tr>
                         <tr><th>Tier:</th><td>{{ team.tier }}</td></tr>
                         <tr><th>Season:</th><td>{{ team.season }}</td></tr>
@@ -79,7 +79,7 @@
                     <option value="__new__">-- Create new association --</option>
                     {% for association in associations %}
                         <option value="{{ association.id }}"
-                            {% if team and team.association.id == association.id %}selected{% endif %}>
+                            {% if team and team.club.association.id == association.id %}selected{% endif %}>
                             {{ association.name }}
                         </option>
                     {% endfor %}

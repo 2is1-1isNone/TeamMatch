@@ -16,9 +16,8 @@
                                 Club: {{ team.club.name }}
                                 {% if user in team.club.admins.all %}<small class="text-success ms-2">Admin</small>{% endif %}
                             </li>
-                            <li>
-                                Association: {{ team.association.name }}
-                                {% if user in team.association.admins.all %}<small class="text-success ms-2">Admin</small>{% endif %}
+                            <li>                                Association: {{ team.club.association.name }}
+                                {% if user in team.club.association.admins.all %}<small class="text-success ms-2">Admin</small>{% endif %}
                             </li>
                         </ul>
                     </li>

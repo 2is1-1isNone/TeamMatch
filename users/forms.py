@@ -30,11 +30,11 @@ class CustomUserCreationForm(forms.ModelForm):
 class TeamForm(forms.ModelForm):
     new_club_name = forms.CharField(required=False, label="Or create new club")
     new_association_name = forms.CharField(required=False, label="Or create new association")
-
+    
     class Meta:
         model = Team
         fields = [
-            'name', 'club', 'association', 'age_group', 'tier', 'season',
+            'name', 'club', 'age_group', 'tier', 'season',
             'description', 'location', 'ready_for_scheduling'
         ]
         widgets = {
@@ -52,6 +52,13 @@ class ScheduleForm(forms.ModelForm):
 
 class EmailAuthenticationForm(AuthenticationForm):
     username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autofocus": True}))
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username:
+            # Convert email to lowercase for case-insensitive authentication
+            username = username.lower()
+        return username
 
     def clean(self):
         email = self.cleaned_data.get('username')
@@ -81,6 +88,16 @@ class SimpleRegistrationForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['email']
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            # Convert email to lowercase for case-insensitive storage
+            email = email.lower()
+            # Check if user already exists (case-insensitive)
+            if User.objects.filter(email__iexact=email).exists():
+                raise forms.ValidationError("A user with this email address already exists.")
+        return email
 
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1')
@@ -127,6 +144,16 @@ class UserEditForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['email', 'first_name', 'last_name']
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            # Convert email to lowercase for case-insensitive storage
+            email = email.lower()
+            # Check if another user has this email (case-insensitive), excluding current user
+            if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+                raise forms.ValidationError("A user with this email address already exists.")
+        return email
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

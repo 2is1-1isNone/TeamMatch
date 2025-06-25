@@ -8,6 +8,11 @@
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
+<!-- Availability Notification Area -->
+<div id="availability-notifications" class="alert-container mb-4">
+    <!-- Dynamic notifications will be inserted here -->
+</div>
+
 <div class="mb-4 d-flex align-items-center">
     <span id="homeLabel" class="fw-bold me-2" style="color:#87CEFA; cursor:pointer;">Home</span>
     <div class="form-check form-switch">
@@ -50,6 +55,81 @@ events = events.map(ev => ({
     allow_doubleheader: ev.allow_doubleheader || false
 }));
 
+// Availability tracking variables from server
+const totalTeams = parseInt('{{ total_teams|default:0 }}') || 0;
+const requiredSeries = parseInt('{{ required_series|default:0 }}') || 0;
+
+// Function to count weekend series (matching the Python logic)
+function countWeekendSeries(dates) {
+    if (dates.length < 2) return 0;
+    
+    const sortedDates = dates.sort((a, b) => new Date(a) - new Date(b));
+    let seriesCount = 0;
+    let i = 0;
+    
+    while (i < sortedDates.length - 1) {
+        const currentDate = new Date(sortedDates[i]);
+        const nextDate = new Date(sortedDates[i + 1]);
+        const diffInDays = (nextDate - currentDate) / (1000 * 60 * 60 * 24);
+        
+        if (diffInDays === 1) {
+            seriesCount++;
+            i += 2; // Skip the next date since it's part of this series
+        } else {
+            i++;
+        }
+    }
+    
+    return seriesCount;
+}
+
+// Function to update availability notifications
+function updateAvailabilityNotifications() {
+    const notificationContainer = document.getElementById('availability-notifications');
+    
+    if (totalTeams <= 1) {
+        notificationContainer.innerHTML = '';
+        return;
+    }
+    
+    // Get current home and away dates
+    const homeDates = events.filter(ev => ev.title === 'Home Game').map(ev => ev.start);
+    const awayDates = events.filter(ev => ev.title === 'Away Game').map(ev => ev.start);
+    
+    // Count available series
+    const availableHomeSeries = countWeekendSeries(homeDates);
+    const availableAwaySeries = countWeekendSeries(awayDates);
+    
+    // Calculate shortfalls
+    const homeSeriesNeeded = Math.max(0, requiredSeries - availableHomeSeries);
+    const awaySeriesNeeded = Math.max(0, requiredSeries - availableAwaySeries);
+    
+    // Build notifications HTML
+    let notificationsHTML = '';
+    
+    if (homeSeriesNeeded > 0) {
+        notificationsHTML += `
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Availability Needed:</strong> Your team needs ${homeSeriesNeeded} more home game weekend availability dates
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    }
+    
+    if (awaySeriesNeeded > 0) {
+        notificationsHTML += `
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Availability Needed:</strong> Your team needs ${awaySeriesNeeded} more away game weekend availability dates
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    }
+    
+    notificationContainer.innerHTML = notificationsHTML;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -72,8 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 'auto',
         selectable: true,
         eventDisplay: 'none',
-        selectMirror: true,
-        dateClick: function(info) {
+        selectMirror: true,        dateClick: function(info) {
             const existingEventIndex = events.findIndex(ev => ev.start === info.dateStr);
             
             if (existingEventIndex !== -1) {
@@ -83,6 +162,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 removeDoubleheaderIndicator(info.dayEl);
                 // Delete from database
                 saveToDatabase(info.dateStr, null, false);
+                
+                // Update availability notifications
+                updateAvailabilityNotifications();
             } else {
                 // Add new event
                 const isHome = mode === 'home';
@@ -97,6 +179,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 info.dayEl.style.color = '#000';
                 // Save to database with allow_doubleheader false
                 saveToDatabase(info.dateStr, isHome, false);
+                
+                // Update availability notifications
+                updateAvailabilityNotifications();
             }
         },
         dayCellDidMount: function(arg) {
@@ -328,9 +413,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tableView.style.display !== 'none') {
             updateTableView();
         }
-    };
-
-    calendar.render();
+    };    calendar.render();
+    
+    // Initialize availability notifications on page load
+    updateAvailabilityNotifications();
 });
 </script>
 

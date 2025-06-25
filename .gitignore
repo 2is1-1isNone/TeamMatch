@@ -1,0 +1,75 @@
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Obsolete files (Celery was replaced with background scheduler)
+celery.py
+tasks.py
+*.KILL
+*_backup.py
+*_clean.py
+*_fixed.py
+*_DELETE.py
+cleanup_project.py
+simple_check.py
+CLEANUP_CANDIDATES.md
+TeamSchedule Notes.txt
+ProductRequirements.txt
+
+# Test data and testing
+TESTING/
+users/testdata/
+users/sixteenAAAtest.py
+users/sixteenAADELETE.py
+users/fourteenB_*
+test_*.py
+
+# Static files (if collected)
+staticfiles/
+static/admin/
+static/rest_framework/
+
+# Media files
+media/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/

@@ -1,8 +1,9 @@
 {% extends "users/base.html" %}
+{% load static %}
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>{{ association.name }} League Schedule for {{age_group}} {{tier}} </h2>
+    <h2>{{ association.name }} League Schedule for {{age_group}} {{tier}} ({{season}})</h2>
     <div>
         <!-- <span class="badge bg-primary">{{ age_group }} {{ tier }}</span> -->
         <br>
@@ -17,40 +18,97 @@
     <i class="fas fa-info-circle"></i> You are viewing this as an association administrator
 </div>
 
-{% if error %}
-<div class="alert alert-danger">
-    <strong>Error:</strong> {{ error }}
+<!-- League Scheduling Settings Section -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-cog"></i> League Scheduling Settings
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="update_deadline" value="1">
+            
+            <div class="col-md-6">
+                <label for="availability_deadline" class="form-label">
+                    <strong>Availability Deadline</strong>
+                </label>
+                <input type="datetime-local" 
+                       class="form-control" 
+                       id="availability_deadline" 
+                       name="availability_deadline"
+                       value="{{ league_state.availability_deadline|date:'Y-m-d\TH:i' }}"
+                       required>
+                <div class="form-text">Teams must enter their availability by this date</div>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label"><strong>Auto-Scheduling</strong></label>
+                <div class="form-check">
+                    <input class="form-check-input" 
+                           type="checkbox" 
+                           id="auto_schedule_enabled" 
+                           name="auto_schedule_enabled"
+                           {% if league_state.auto_schedule_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="auto_schedule_enabled">
+                        Automatically trigger scheduling when deadline reached and all teams ready
+                    </label>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Settings
+                </button>
+            </div>
+        </form>
+        
+        <!-- Current Status Display -->
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Current Status:</h6>
+                {% if league_state.status == 'waiting' %}
+                    <span class="badge bg-secondary">{{ league_state.get_status_display }}</span>
+                {% elif league_state.status == 'triggered' %}
+                    <span class="badge bg-info">{{ league_state.get_status_display }}</span>
+                {% elif league_state.status == 'conflicts' %}
+                    <span class="badge bg-warning">{{ league_state.get_status_display }}</span>
+                {% elif league_state.status == 'completed' %}
+                    <span class="badge bg-success">{{ league_state.get_status_display }}</span>
+                {% elif league_state.status == 'manual_hold' %}
+                    <span class="badge bg-danger">{{ league_state.get_status_display }}</span>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <h6>Last Attempt:</h6>
+                {% if league_state.last_schedule_attempt %}
+                    {{ league_state.last_schedule_attempt|date:"M d, Y g:i A" }}
+                {% else %}
+                    <em>Never attempted</em>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
-{% endif %}
-
-{% if debug_info %}
-<div class="alert alert-warning">
-    <h4>Debug Information</h4>
-    <ul>
-        <li><strong>Session Data:</strong> {{ debug_info.session_data }}</li>
-        <li><strong>CSRF Token:</strong> {{ debug_info.csrf_token }}</li>
-        <li><strong>User Authenticated:</strong> {{ debug_info.user_authenticated }}</li>
-        <li><strong>User:</strong> {{ debug_info.user }}</li>
-        <li><strong>Conflicts Count:</strong> {{ debug_info.conflicts_count }}</li>
-        {% if debug_info.error_message %}
-        <li><strong>Error Message:</strong> {{ debug_info.error_message }}</li>
-        {% endif %}
-    </ul>
-</div>
-{% endif %}
 
 <h2>Scheduled Matches</h2>
 <!-- Toggle View Buttons -->
 <div class="btn-group mb-3" role="group" aria-label="Toggle schedule view">
     <a href="#" class="btn btn-primary active" aria-current="page">Table View</a>
-    <a href="{% url 'league_calendar' age_group tier %}" class="btn btn-outline-primary">Calendar View</a>
+    <a href="{% url 'league_calendar' age_group tier season association.id %}" class="btn btn-outline-primary">Calendar View</a>
 </div>
-<table class="table table-striped">    <thead>
+<table class="table table-striped" id="scheduled-matches-table">    <thead>
         <tr>
             <th>Home Team</th>
             <th>Away Team</th>
-            <th>Dates</th>
-            <th>Type</th>
+            <th>
+                Dates
+                <button type="button" class="btn btn-link btn-sm p-0 ms-2" onclick="sortMatchesByDate()" id="sort-btn" style="text-decoration: none;">
+                    <i class="fas fa-sort-amount-down text-primary"></i>
+                </button>
+            </th>
             <th>Status</th>
         </tr>
     </thead>
@@ -58,23 +116,12 @@
         {% for match in schedule %}
         <tr>
             <td>{{ match.home_team.name }}</td>
-            <td>{{ match.away_team.name }}</td>
-            <td>{{ match.dates|join:", " }}</td>            <td>
-                {% if match.type == 'doubleheader_home_series' %}
-                    <span class="badge bg-success">Doubleheader Series (Home)</span>
-                {% elif match.type == 'doubleheader_away_series' %}
-                    <span class="badge bg-warning">Doubleheader Series (Away)</span>
-                {% elif match.type == 'doubleheader_home' %}
-                    <span class="badge bg-info">Doubleheader (Home)</span>
-                {% elif match.type == 'doubleheader_away' %}
-                    <span class="badge bg-warning">Doubleheader (Away)</span>
-                {% elif match.type == 'series' %}
-                    <span class="badge bg-primary">Series</span>
-                {% else %}
-                    <span class="badge bg-secondary">Standard</span>
-                {% endif %}
+            <td>{{ match.away_team.name }}</td>            <td>
+                {% for date in match.dates %}
+                    {{ date|date:"Y-m-d" }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
             </td>
-            <td>{{ match.status }}</td>
+            <td>{{ match.status|title }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -140,28 +187,127 @@
 <script>
 document.getElementById('generateScheduleBtn').addEventListener('click', function() {
     this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
-
-    fetch("{% url 'generate_schedule_service' age_group tier %}", {
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';    fetch("{% url 'generate_schedule_service' age_group tier season association.id %}", {
         method: "POST",
         headers: {
             "X-CSRFToken": "{{ csrf_token }}",
         },
-    })
-    .then(response => {
+    })    .then(response => {
         if (response.ok) {
+            // Redirect to the current page to reload with fresh data
             window.location.reload();
         } else {
-            this.disabled = false;
-            this.innerHTML = 'Generate Schedule';
-            alert("Failed to generate schedule. Please try again.");
+            throw new Error('Failed to generate schedule');
         }
-    })
-    .catch(error => {
+    }).catch(error => {
         this.disabled = false;
         this.innerHTML = 'Generate Schedule';
         alert("An error occurred: " + error.message);
     });
+});
+
+function sortMatchesByDate() {
+    const scheduleTable = document.getElementById('scheduled-matches-table');
+    if (!scheduleTable) {
+        console.log("Schedule table not found");
+        return;
+    }
+
+    const tbody = scheduleTable.querySelector('tbody');
+    if (!tbody || tbody.children.length === 0) {
+        console.log("No table body or rows found");
+        return;
+    }
+
+    console.log("Sorting matches by date...");
+    
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    console.log(`Found ${rows.length} rows to sort`);
+
+    // Sort rows by the earliest date in each row's date column (3rd column)
+    rows.sort((a, b) => {
+        // Get the date text from the 3rd column (index 2)
+        const aDatesText = a.cells[2].textContent.trim();
+        const bDatesText = b.cells[2].textContent.trim();
+        
+        console.log(`Comparing: "${aDatesText}" vs "${bDatesText}"`);
+
+        // Parse dates more robustly
+        function parseMatchDates(dateStr) {
+            // Split by comma to handle multiple dates
+            const dateStrings = dateStr.split(',').map(s => s.trim());
+            const dates = [];
+            
+            for (let dateString of dateStrings) {
+                let date = null;
+                
+                // Try YYYY-MM-DD format first (most likely from Django)
+                if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    date = new Date(dateString);
+                } else {
+                    // Try direct parsing for other formats
+                    date = new Date(dateString);
+                }
+                
+                if (!isNaN(date.getTime())) {
+                    dates.push(date);
+                    console.log(`Parsed date: ${dateString} -> ${date}`);
+                } else {
+                    console.warn(`Failed to parse date: ${dateString}`);
+                }
+            }
+            
+            return dates;
+        }
+
+        try {
+            const aDates = parseMatchDates(aDatesText);
+            const bDates = parseMatchDates(bDatesText);
+            
+            // Get the earliest date from each array
+            const aEarliestDate = aDates.length > 0 ? 
+                new Date(Math.min(...aDates.map(d => d.getTime()))) : 
+                new Date('2099-12-31'); // Far future for missing dates
+            
+            const bEarliestDate = bDates.length > 0 ? 
+                new Date(Math.min(...bDates.map(d => d.getTime()))) : 
+                new Date('2099-12-31');
+            
+            console.log(`Earliest dates - A: ${aEarliestDate.toISOString().split('T')[0]}, B: ${bEarliestDate.toISOString().split('T')[0]}`);
+            
+            // Sort chronologically (earliest first)
+            return aEarliestDate - bEarliestDate;
+            
+        } catch (e) {
+            console.error("Error parsing dates:", e, "for", aDatesText, "vs", bDatesText);
+            // If parsing fails, use string comparison as fallback
+            return aDatesText.localeCompare(bDatesText);
+        }
+    });
+
+    // Clear the tbody and append the sorted rows
+    while (tbody.firstChild) {
+        tbody.removeChild(tbody.firstChild);
+    }
+    rows.forEach(row => tbody.appendChild(row));
+      console.log("Matches sorted by earliest date (chronological order)");
+    
+    // Update the sort button to show it was used
+    const sortBtn = document.getElementById('sort-btn');
+    if (sortBtn) {
+        sortBtn.innerHTML = '<i class="fas fa-check text-success"></i>';
+        sortBtn.title = 'Sorted by Date';
+    }
+}
+
+// Sort scheduled matches by date (chronologically) when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Page loaded, attempting to sort matches...");
+    
+    // Wait a moment for all content to be rendered
+    setTimeout(function() {
+        sortMatchesByDate();
+    }, 100);
 });
 </script>
 {% endblock %}

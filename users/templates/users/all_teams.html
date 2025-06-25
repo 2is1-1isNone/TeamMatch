@@ -1,6 +1,13 @@
 {% extends "users/base.html" %}
 {% block content %}
-<h2>All Teams</h2>
+<h2>All Teams{% if club_name %} - {{ club_name }}{% endif %}</h2>
+
+{% if club_name %}
+<div class="alert alert-info">
+    <i class="fas fa-building"></i> Showing teams for <strong>{{ club_name }}</strong>
+    <a href="{% url 'all_teams' %}" class="btn btn-sm btn-outline-secondary ms-2">View All Teams</a>
+</div>
+{% endif %}
 
 <form method="get" class="mb-3">
     <select name="age_group" class="form-select d-inline w-auto">
@@ -18,13 +25,13 @@
     <button type="submit" class="btn btn-primary">Filter</button>
 </form>
 
-<table class="table table-striped">
-    <thead>
+<table class="table table-striped">    <thead>
         <tr>
             <th>Team Name</th>
             <th>Club</th>
             <th>Age Group</th>
             <th>Tier</th>
+            <th>Season</th>
         </tr>
     </thead>
     <tbody>
@@ -33,6 +40,8 @@
             <td> <a href="{% url 'team_page' team.id %}">{{ team.name }}</a></td>
             <td>{{ team.club.name }}</td>
             <td>{{ team.get_age_group_display }}</td>
+            <td>{{ team.get_tier_display }}</td>
+            <td>{{ team.season }}</td>
             <td>{{ team.get_tier_display }}</td>
         </tr>
         {% empty %}
