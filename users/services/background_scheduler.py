@@ -12,7 +12,7 @@ from django.apps import apps
 logger = logging.getLogger(__name__)
 
 class BackgroundScheduler:
-    """Simple background thread scheduler for league deadline scheduling"""
+    """Simple background thread scheduler for division deadline scheduling"""
     
     def __init__(self):
         self.thread = None
@@ -118,60 +118,60 @@ class BackgroundScheduler:
         print(f"📍 _run_scheduler thread ending for instance {self.instance_id}")
     
     def _check_deadlines(self):
-        """Check all league states for deadline triggers"""
+        """Check all division states for deadline triggers"""
         print(f"📍 _check_deadlines called")
         
         # Get current time in Pacific timezone for logging
         current_time = timezone.now()
         pacific_time = timezone.localtime(current_time)
-        logger.info(f"🔍 Background scheduler checking for leagues with passed deadlines at {pacific_time} (Pacific)")
+        logger.info(f"🔍 Background scheduler checking for divisions with passed deadlines at {pacific_time} (Pacific)")
         
         try:
             # Import here to avoid circular imports and ensure apps are loaded
-            LeagueSchedulingState = apps.get_model('users', 'LeagueSchedulingState')
-            print(f"📍 Got LeagueSchedulingState model")
+            DivisionSchedulingState = apps.get_model('users', 'DivisionSchedulingState')
+            print(f"📍 Got DivisionSchedulingState model")
             
-            # Get all league states that might need scheduling
-            all_league_states = LeagueSchedulingState.objects.all()
-            logger.info(f"📊 Total league states in database: {all_league_states.count()}")
+            # Get all division states that might need scheduling
+            all_division_states = DivisionSchedulingState.objects.all()
+            logger.info(f"📊 Total division states in database: {all_division_states.count()}")
             
-            eligible_states = LeagueSchedulingState.objects.filter(
+            eligible_states = DivisionSchedulingState.objects.filter(
                 auto_schedule_enabled=True,
                 status='waiting'
             )
-            logger.info(f"📋 League states with auto-schedule enabled and waiting status: {eligible_states.count()}")
+            logger.info(f"📋 Division states with auto-schedule enabled and waiting status: {eligible_states.count()}")
             
-            league_states = LeagueSchedulingState.objects.filter(
+            division_states = DivisionSchedulingState.objects.filter(
                 auto_schedule_enabled=True,
                 status='waiting',
                 availability_deadline__lte=timezone.now()
             )
             
-            if league_states.exists():
-                logger.info(f"⏰ Found {league_states.count()} league(s) with passed deadlines - processing...")
-                for league_state in league_states:
-                    deadline_pacific = timezone.localtime(league_state.availability_deadline)
-                    logger.info(f"  🎯 Processing: {league_state}")
+            if division_states.exists():
+                logger.info(f"⏰ Found {division_states.count()} division(s) with passed deadlines - processing...")
+                for division_state in division_states:
+                    deadline_pacific = timezone.localtime(division_state.availability_deadline)
+                    logger.info(f"  🎯 Processing: {division_state}")
                     logger.info(f"     Deadline: {deadline_pacific} (Pacific)")
-                    logger.info(f"     Status: {league_state.status}")
-                    logger.info(f"     Auto enabled: {league_state.auto_schedule_enabled}")
+                    logger.info(f"     Status: {division_state.status}")
+                    logger.info(f"     Auto enabled: {division_state.auto_schedule_enabled}")
             else:
-                logger.info(f"✅ No leagues found with passed deadlines requiring scheduling")
+                logger.info(f"✅ No divisions found with passed deadlines requiring scheduling")
             
-            for league_state in league_states:
+            for division_state in division_states:
                 try:
-                    logger.info(f"🔧 Checking trigger conditions for {league_state}")
-                    should_trigger, reason = league_state.should_trigger_scheduling()
+                    logger.info(f"🔧 Checking trigger conditions for {division_state}")
+                    should_trigger, reason = division_state.should_trigger_scheduling()
                     logger.info(f"   Should trigger: {should_trigger}, Reason: {reason}")
                     
                     if should_trigger:
-                        logger.info(f"🎯 DEADLINE HIT! Triggering scheduling for {league_state}")
-                        self._trigger_scheduling(league_state)
+                        logger.info(f"🎯 DEADLINE HIT! Triggering scheduling for {division_state}")
+                        self._trigger_scheduling(division_state)
                     else:
-                        logger.info(f"⚠️ Not triggering scheduling for {league_state}: {reason}")
+                        logger.info(f"⚠️ Not triggering scheduling for {division_state}: {reason}")
                         
                 except Exception as e:
-                    logger.error(f"❌ Error checking deadline for {league_state}: {e}")
+                    logger.error(f"❌ Error checking deadline for {division_state}: {e}")
                     
         except Exception as e:
             print(f"❌ Error in _check_deadlines: {e}")
@@ -179,52 +179,52 @@ class BackgroundScheduler:
             import traceback
             traceback.print_exc()
     
-    def _trigger_scheduling(self, league_state):
-        """Trigger scheduling for a league"""
+    def _trigger_scheduling(self, division_state):
+        """Trigger scheduling for a division"""
         try:
-            logger.info(f"🔥 BACKGROUND SCHEDULER: Initiating schedule generation for {league_state}")
+            logger.info(f"🔥 BACKGROUND SCHEDULER: Initiating schedule generation for {division_state}")
             
             # Import here to avoid circular imports
             from users.services.schedule_orchestration import SchedulingOrchestrationService
             
             # Create orchestration service and trigger scheduling
             service = SchedulingOrchestrationService(
-                league_state.age_group, 
-                league_state.tier, 
-                league_state.season,
-                league_state.association
+                division_state.age_group, 
+                division_state.tier, 
+                division_state.season,
+                division_state.association
             )
             
             # Attempt to trigger scheduling
             success, message = service.check_and_trigger_scheduling(manual_trigger=False)
             
             if success:
-                logger.info(f"🎉 BACKGROUND SCHEDULER: Successfully triggered scheduling for {league_state}: {message}")
+                logger.info(f"🎉 BACKGROUND SCHEDULER: Successfully triggered scheduling for {division_state}: {message}")
             else:
-                logger.warning(f"⚠️ BACKGROUND SCHEDULER: Failed to trigger scheduling for {league_state}: {message}")
+                logger.warning(f"⚠️ BACKGROUND SCHEDULER: Failed to trigger scheduling for {division_state}: {message}")
             
-            # Update the league state
-            league_state.last_schedule_attempt = timezone.now()
+            # Update the division state
+            division_state.last_schedule_attempt = timezone.now()
             if success:
-                league_state.status = 'triggered'
-            league_state.save()
+                division_state.status = 'triggered'
+            division_state.save()
             
         except Exception as e:
-            logger.error(f"❌ BACKGROUND SCHEDULER: Error triggering scheduling for {league_state}: {e}")
+            logger.error(f"❌ BACKGROUND SCHEDULER: Error triggering scheduling for {division_state}: {e}")
     
-    def schedule_deadline_check(self, league_state):
-        """Schedule a deadline check for a specific league (for immediate use)"""
+    def schedule_deadline_check(self, division_state):
+        """Schedule a deadline check for a specific division (for immediate use)"""
         # For the background thread approach, we just mark it as scheduled
         # The background thread will pick it up on the next check
-        league_state.task_scheduled = True
-        league_state.save()
-        logger.info(f"Scheduled deadline check for {league_state}")
+        division_state.task_scheduled = True
+        division_state.save()
+        logger.info(f"Scheduled deadline check for {division_state}")
     
-    def cancel_deadline_check(self, league_state):
+    def cancel_deadline_check(self, division_state):
         """Cancel a scheduled deadline check"""
-        league_state.task_scheduled = False
-        league_state.save()
-        logger.info(f"Cancelled deadline check for {league_state}")
+        division_state.task_scheduled = False
+        division_state.save()
+        logger.info(f"Cancelled deadline check for {division_state}")
     
     def update_check_interval(self):
         """Update the check interval from system settings without restarting the scheduler"""

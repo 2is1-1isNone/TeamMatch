@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods  # Add this line
 from django.utils import timezone  # Add timezone import
 import json  # Add json import
-from .models import User, Team, Club, Association, Schedule, TeamInvite, TeamDate, LeagueSchedulingState, ScheduleProposal
+from .models import User, Team, Club, Association, Schedule, TeamInvite, TeamDate, DivisionSchedulingState, ScheduleProposal
 from .forms import (
     CustomUserCreationForm, TeamForm, ScheduleForm, 
     ClubForm, AssociationForm, SimpleRegistrationForm,
@@ -19,7 +19,7 @@ from django.http import JsonResponse
 import json
 from datetime import datetime
 from users.services.schedule_orchestration import SchedulingOrchestrationService
-from users.services.schedule_service import LeagueScheduler
+from users.services.schedule_service import DivisionScheduler
 from django.utils.dateformat import format as date_format
 
 def register(request):
@@ -49,17 +49,17 @@ def dashboard(request):
     age_groups = Team._meta.get_field('age_group').choices
     tiers = Team._meta.get_field('tier').choices
     
-    # Get all leagues (age_group + tier + season combinations) for associations the user manages
-    leagues = []
+    # Get all divisions (age_group + tier + season combinations) for associations the user manages
+    divisions = []
     if request.user.admin_associations.exists():
         # Get unique combinations of age_group, tier, season for each association the user manages
         for association in request.user.admin_associations.all():
-            league_combinations = Team.objects.filter(club__association=association).values(
+            division_combinations = Team.objects.filter(club__association=association).values(
                 'age_group', 'tier', 'season'
             ).distinct().order_by('age_group', 'tier', 'season')
             
-            for combo in league_combinations:
-                leagues.append({
+            for combo in division_combinations:
+                divisions.append({
                     'association': association,
                     'age_group': combo['age_group'],
                     'tier': combo['tier'],
@@ -73,7 +73,7 @@ def dashboard(request):
         'teams': teams,
         'age_groups': age_groups,
         'tiers': tiers,
-        'leagues': leagues,
+        'divisions': divisions,
         'admin_clubs': admin_clubs,  # Add club admin context
     })
 
@@ -244,18 +244,18 @@ def billing(request):
 def team_calendar(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     
-    # Get the league scheduling state for this team's league
+    # Get the division scheduling state for this team's division
     try:
-        league_state = LeagueSchedulingState.objects.get(
+        division_state = DivisionSchedulingState.objects.get(
             age_group=team.age_group,
             tier=team.tier,
             season=team.season,
             association=team.club.association
         )
-        availability_deadline = league_state.availability_deadline
+        availability_deadline = division_state.availability_deadline
         # Convert to Pacific Time for display
         availability_deadline_local = timezone.localtime(availability_deadline) if availability_deadline else None
-    except LeagueSchedulingState.DoesNotExist:
+    except DivisionSchedulingState.DoesNotExist:
         availability_deadline_local = None
     
     # Get existing dates
@@ -269,9 +269,9 @@ def team_calendar(request, team_id):
             'allow_doubleheader': date.allow_doubleheader
         } for date in team_dates
     ]
-      # Calculate league requirements and availability
-    league_teams = Team.objects.filter(age_group=team.age_group, tier=team.tier)
-    total_teams = league_teams.count()
+      # Calculate division requirements and availability
+    division_teams = Team.objects.filter(age_group=team.age_group, tier=team.tier)
+    total_teams = division_teams.count()
     required_series = total_teams - 1  # Each team needs (N-1) home and (N-1) away series
       # Helper function to count weekend series from dates
     def count_weekend_series(dates):
@@ -604,8 +604,8 @@ def delete_association(request, association_id):
 
 
 @login_required
-def generate_league_schedule(request, age_group, tier, season, association_id):
-    print(f"=== GENERATE_LEAGUE_SCHEDULE CALLED ===")
+def generate_division_schedule(request, age_group, tier, season, association_id):
+    print(f"=== GENERATE_DIVISION_SCHEDULE CALLED ===")
     print(f"Params: {age_group}/{tier}/{season}/{association_id}")
     
     # Get the association and validate access
@@ -617,13 +617,13 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
     
     # Check if user is an association admin
     if request.user not in association.admins.all():
-        messages.error(request, "You must be an association admin to access the league scheduler")
+        messages.error(request, "You must be an association admin to access the division scheduler")
         return redirect('dashboard')
     
-    # Get or create the league scheduling state
-    from users.models import LeagueSchedulingState
+    # Get or create the division scheduling state
+    from users.models import DivisionSchedulingState
     from django.utils import timezone
-    league_state, created = LeagueSchedulingState.objects.get_or_create(
+    division_state, created = DivisionSchedulingState.objects.get_or_create(
         age_group=age_group,
         tier=tier,
         season=season,
@@ -641,10 +641,10 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
         print("📅 AVAILABILITY DEADLINE UPDATE TRIGGERED")
         print("=" * 80)
         print(f"🏢 Association: {association.name}")
-        print(f"📋 League: {age_group} {tier} ({season})")
+        print(f"📋 Division: {age_group} {tier} ({season})")
         print(f"👤 User: {request.user.username} (ID: {request.user.id})")
-        print(f"⏰ Old Deadline: {league_state.availability_deadline}")
-        print(f"🔧 Old Auto-Schedule: {league_state.auto_schedule_enabled}")
+        print(f"⏰ Old Deadline: {division_state.availability_deadline}")
+        print(f"🔧 Old Auto-Schedule: {division_state.auto_schedule_enabled}")
         print(f"📝 New Deadline (raw): {deadline_str}")
         print(f"🔧 New Auto-Schedule: {auto_schedule}")
         print(f"⏰ Timestamp: {timezone.now()}")
@@ -659,18 +659,18 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
                 new_deadline = timezone.make_aware(deadline)
                 
                 print(f"✅ Parsed Deadline (Pacific): {new_deadline}")
-                print(f"📊 League State ID: {league_state.id}")
+                print(f"📊 Division State ID: {division_state.id}")
                 
-                league_state.availability_deadline = new_deadline
-                league_state.auto_schedule_enabled = auto_schedule
+                division_state.availability_deadline = new_deadline
+                division_state.auto_schedule_enabled = auto_schedule
                 # Reset status to 'waiting' so the background scheduler will pick it up
-                league_state.status = 'waiting'
-                league_state.save()
+                division_state.status = 'waiting'
+                division_state.save()
                 
-                print(f"💾 League state saved successfully!")
-                print(f"   New deadline: {league_state.availability_deadline}")
-                print(f"   Auto-schedule: {league_state.auto_schedule_enabled}")
-                print(f"   Status reset to: {league_state.status}")
+                print(f"💾 Division state saved successfully!")
+                print(f"   New deadline: {division_state.availability_deadline}")
+                print(f"   Auto-schedule: {division_state.auto_schedule_enabled}")
+                print(f"   Status reset to: {division_state.status}")
                 
                 # Create orchestration service and reschedule deadline task
                 orchestration_service = SchedulingOrchestrationService(age_group, tier, season, association)
@@ -678,10 +678,10 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
                 
                 if task_id:
                     print(f"🚀 Background task scheduled with ID: {task_id}")
-                    messages.success(request, f"League scheduling settings updated and deadline task scheduled (Task ID: {task_id[:8]}...)!")
+                    messages.success(request, f"Division scheduling settings updated and deadline task scheduled (Task ID: {task_id[:8]}...)!")
                 else:
                     print(f"⚠️ No background task scheduled")
-                    messages.success(request, "League scheduling settings updated!")
+                    messages.success(request, "Division scheduling settings updated!")
                     
             except ValueError:
                 print(f"❌ ERROR: Invalid deadline format: {deadline_str}")
@@ -690,8 +690,8 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
                 print(f"❌ ERROR: {str(e)}")
                 messages.error(request, f"Error scheduling deadline task: {str(e)}")
         
-        return redirect('league_schedule', age_group=age_group, tier=tier, season=season, association_id=association_id)
-      # Get teams in this specific league (age_group + tier + season + association)
+        return redirect('division_schedule', age_group=age_group, tier=tier, season=season, association_id=association_id)
+      # Get teams in this specific division (age_group + tier + season + association)
     teams = Team.objects.filter(
         age_group=age_group, 
         tier=tier, 
@@ -700,11 +700,11 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
     )
     
     if not teams.exists():
-        messages.error(request, f"No teams found for {age_group} {tier} {season} league")
+        messages.error(request, f"No teams found for {age_group} {tier} {season} division")
         return redirect('dashboard')
     
     # Initialize scheduler but don't generate schedule automatically when page is loaded
-    scheduler = LeagueScheduler(age_group, tier, season, association)
+    scheduler = DivisionScheduler(age_group, tier, season, association)
     
     # Only get existing schedule proposals, don't generate new ones automatically
     existing_proposals = ScheduleProposal.objects.filter(
@@ -828,7 +828,7 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
             f"Schedule generated with {len(unscheduled_matches)} conflicts that need resolution"
         )
     
-    return render(request, 'users/league_schedule.html', {
+    return render(request, 'users/division_schedule.html', {
         'schedule': schedule,
         'unscheduled_matches': unscheduled_matches,
         'age_group': age_group,
@@ -836,7 +836,7 @@ def generate_league_schedule(request, age_group, tier, season, association_id):
         'season': season,
         'association': association,
         'teams_with_availability': teams_with_availability,
-        'league_state': league_state,  # Add deadline management context
+        'division_state': division_state,  # Add deadline management context
     })
 
 @login_required
@@ -883,8 +883,8 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
                 ScheduleMatch.objects.filter(generated_schedule=schedule).delete()
             existing_schedules.delete()
             print("=== EXISTING SCHEDULES DELETED ===")
-        print("=== CALLING LEAGUE_SCHEDULER.CREATE_SCHEDULE ===")
-        scheduler = LeagueScheduler(age_group, tier, season, association)
+        print("=== CALLING DIVISION_SCHEDULER.CREATE_SCHEDULE ===")
+        scheduler = DivisionScheduler(age_group, tier, season, association)
         schedule, unscheduled_matches = scheduler.create_schedule()
         print(f"Schedule returned: {len(schedule)} matches, {len(unscheduled_matches)} unscheduled")
         
@@ -952,9 +952,9 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
                 'away_dates': away_date_objects
             })
 
-        # Get or create league state for template context
-        from users.models import LeagueSchedulingState
-        league_state, created = LeagueSchedulingState.objects.get_or_create(
+        # Get or create division state for template context
+        from users.models import DivisionSchedulingState
+        division_state, created = DivisionSchedulingState.objects.get_or_create(
             age_group=age_group,
             tier=tier,
             season=season,
@@ -972,9 +972,9 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
         else:
             messages.success(request, "Schedule generated successfully!")
         
-        print("=== REDIRECTING TO LEAGUE_SCHEDULE ===")
-        # Redirect back to the league schedule page to load fresh data from database
-        return redirect('league_schedule', 
+        print("=== REDIRECTING TO DIVISION_SCHEDULE ===")
+        # Redirect back to the division schedule page to load fresh data from database
+        return redirect('division_schedule', 
                        age_group=age_group, 
                        tier=tier, 
                        season=season, 
@@ -983,14 +983,14 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
         error_message = str(e)
         print(f"ERROR in generate_schedule_service: {error_message}")
         messages.error(request, f"Error generating schedule: {error_message}")
-        return redirect('league_schedule', 
+        return redirect('division_schedule', 
                        age_group=age_group, 
                        tier=tier, 
                        season=season, 
                        association_id=association_id)
 
 @login_required
-def league_calendar(request, age_group, tier, season, association_id):
+def division_calendar(request, age_group, tier, season, association_id):
     # Get the association and validate access
     try:
         association = Association.objects.get(id=association_id)
@@ -1000,16 +1000,16 @@ def league_calendar(request, age_group, tier, season, association_id):
     
     # Check if user is an association admin
     if request.user not in association.admins.all():
-        messages.error(request, "You must be an association admin to access the league calendar")
+        messages.error(request, "You must be an association admin to access the division calendar")
         return redirect('dashboard')
-      # Get teams in this specific league
+      # Get teams in this specific division
     teams = Team.objects.filter(
         age_group=age_group, 
         tier=tier, 
         season=season,
         club__association=association    )
     if not teams.exists():
-        messages.error(request, f"No teams found for {age_group} {tier} {season} league")
+        messages.error(request, f"No teams found for {age_group} {tier} {season} division")
         return redirect('dashboard')
       # Load existing generated schedule instead of regenerating
     from users.models import GeneratedSchedule, ScheduleMatch
@@ -1077,7 +1077,7 @@ def league_calendar(request, age_group, tier, season, association_id):
             
         events.append(event)
     events_json = json.dumps(events)
-    return render(request, 'users/league_calendar.html', {
+    return render(request, 'users/division_calendar.html', {
         'schedule': schedule,
         'association': association,
         'age_group': age_group,
@@ -1118,9 +1118,9 @@ def clubs_list(request, association_id):
     })
 
 @login_required
-def association_leagues(request, association_id):
-    """Show all leagues for an association admin"""
-    from users.models import LeagueSchedulingState  # Import at function level
+def association_divisions(request, association_id):
+    """Show all divisions for an association admin"""
+    from users.models import DivisionSchedulingState  # Import at function level
     
     try:
         association = Association.objects.get(id=association_id)
@@ -1132,23 +1132,23 @@ def association_leagues(request, association_id):
         messages.error(request, "You must be an association admin to access this page")
         return redirect('dashboard')
     
-    # Handle league settings updates
+    # Handle division settings updates
     if request.method == 'POST':
-        if 'update_league_settings' in request.POST:
+        if 'update_division_settings' in request.POST:
             # Handle season settings update
             season_start = request.POST.get('season_start')
             season_end = request.POST.get('season_end')
             
             # Store season settings in request.session (you might want to add these fields to Association model later)
-            current_settings = request.session.get('league_settings', {})
+            current_settings = request.session.get('division_settings', {})
             current_settings.update({
                 'season_start': season_start,
                 'season_end': season_end,
             })
-            request.session['league_settings'] = current_settings
+            request.session['division_settings'] = current_settings
             
             messages.success(request, "Season settings updated successfully!")
-            return redirect('association_leagues', association_id=association_id)
+            return redirect('association_divisions', association_id=association_id)
             
         elif 'update_deadline_settings' in request.POST:
             # Handle deadline settings update
@@ -1156,55 +1156,55 @@ def association_leagues(request, association_id):
             apply_to_all = request.POST.get('apply_deadline_to_all') == 'on'
             
             # Store deadline setting in request.session
-            current_settings = request.session.get('league_settings', {})
+            current_settings = request.session.get('division_settings', {})
             current_settings['scheduling_deadline'] = scheduling_deadline
-            request.session['league_settings'] = current_settings
+            request.session['division_settings'] = current_settings
             
             if apply_to_all and scheduling_deadline:
-                # Update all league scheduling states for this association
+                # Update all division scheduling states for this association
                 from datetime import datetime
                 try:
                     deadline = datetime.strptime(scheduling_deadline, '%Y-%m-%dT%H:%M')
                     deadline_aware = timezone.make_aware(deadline)
                     
-                    updated_count = LeagueSchedulingState.objects.filter(
+                    updated_count = DivisionSchedulingState.objects.filter(
                         association=association
                     ).update(availability_deadline=deadline_aware)
                     
-                    messages.success(request, f"Scheduling deadline updated for {updated_count} leagues!")
+                    messages.success(request, f"Scheduling deadline updated for {updated_count} divisions!")
                 except ValueError:
                     messages.error(request, "Invalid deadline format")
             else:
                 messages.success(request, "Deadline settings updated successfully!")
             
-            return redirect('association_leagues', association_id=association_id)
+            return redirect('association_divisions', association_id=association_id)
     
-    # Get league settings from session or set defaults
-    league_settings = request.session.get('league_settings', {
+    # Get division settings from session or set defaults
+    division_settings = request.session.get('division_settings', {
         'season_start': '',
         'season_end': '',
         'scheduling_deadline': (timezone.now() + timezone.timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
     })
     
-    # Get all unique league combinations for this association
-    leagues = Team.objects.filter(club__association=association).values(
+    # Get all unique division combinations for this association
+    divisions = Team.objects.filter(club__association=association).values(
         'age_group', 'tier', 'season'
     ).distinct().order_by('season', 'age_group', 'tier')
     
-    # Get team counts for each league and scheduling state
-    leagues_with_data = []
-    for league in leagues:
-        teams_in_league = Team.objects.filter(
+    # Get team counts for each division and scheduling state
+    divisions_with_data = []
+    for division in divisions:
+        teams_in_division = Team.objects.filter(
             club__association=association,
-            age_group=league['age_group'],
-            tier=league['tier'],
-            season=league['season']        )
+            age_group=division['age_group'],
+            tier=division['tier'],
+            season=division['season']        )
         
-        # Get or create league scheduling state
-        league_state, created = LeagueSchedulingState.objects.get_or_create(
-            age_group=league['age_group'],
-            tier=league['tier'],
-            season=league['season'],
+        # Get or create division scheduling state
+        division_state, created = DivisionSchedulingState.objects.get_or_create(
+            age_group=division['age_group'],
+            tier=division['tier'],
+            season=division['season'],
             association=association,
             defaults={
                 'availability_deadline': timezone.now() + timezone.timedelta(days=30),
@@ -1212,21 +1212,21 @@ def association_leagues(request, association_id):
             }
         )
         
-        leagues_with_data.append({
-            'age_group': league['age_group'],
-            'tier': league['tier'],
-            'season': league['season'],
-            'team_count': teams_in_league.count(),
-            'league_state': league_state,            'teams': list(teams_in_league.select_related('club').values(
+        divisions_with_data.append({
+            'age_group': division['age_group'],
+            'tier': division['tier'],
+            'season': division['season'],
+            'team_count': teams_in_division.count(),
+            'division_state': division_state,            'teams': list(teams_in_division.select_related('club').values(
                 'id', 'name', 'description', 'location', 'club__name'
             )),
         })
     
-    return render(request, 'users/association_leagues.html', {
+    return render(request, 'users/association_divisions.html', {
         'association': association,
-        'leagues': leagues_with_data,
-        'leagues_json': json.dumps(leagues_with_data, default=str),
-        'league_settings': league_settings,  # Add league settings to context
+        'divisions': divisions_with_data,
+        'divisions_json': json.dumps(divisions_with_data, default=str),
+        'division_settings': division_settings,  # Add division settings to context
     })
 
 @login_required
@@ -1335,7 +1335,7 @@ def send_unscheduled_notifications(request, age_group, tier, season, association
         message_lines = [
             f'Hello Team Members,',
             f'',
-            f'This is an automated notification regarding unscheduled matches in the {association.name} {age_group} {tier} league for the {season} season.',
+            f'This is an automated notification regarding unscheduled matches in the {association.name} {age_group} {tier} division for the {season} season.',
             f'',
             f'Your team is involved in matches that could not be scheduled due to conflicts:',
             f'',
@@ -1351,14 +1351,14 @@ def send_unscheduled_notifications(request, age_group, tier, season, association
             f'To resolve these scheduling conflicts:',
             f'1. Team managers/admins should review your team\'s availability dates',
             f'2. Add more weekend dates when your team can play',
-            f'3. Contact the league administrator if you need assistance',
+            f'3. Contact the division administrator if you need assistance',
             f'',
             f'Once teams have updated their availability, the schedule will be regenerated automatically.',
             f'',
-            f'If you have any questions, please contact your team manager or the league administrator.',
+            f'If you have any questions, please contact your team manager or the division administrator.',
             f'',
             f'Best regards,',
-            f'{association.name} League Management System'
+            f'{association.name} Division Management System'
         ])
         
         message = '\n'.join(message_lines)
@@ -1450,7 +1450,7 @@ def send_availability_notifications(request, age_group, tier, season, associatio
         if request.user not in association.admins.all():
             return JsonResponse({'success': False, 'message': 'You must be an association admin to send notifications'})
         
-        # Get teams for this league
+        # Get teams for this division
         teams = Team.objects.filter(
             club__association=association,
             age_group=age_group,
@@ -1459,7 +1459,7 @@ def send_availability_notifications(request, age_group, tier, season, associatio
         )
         
         if not teams.exists():
-            return JsonResponse({'success': False, 'message': 'No teams found for this league'})
+            return JsonResponse({'success': False, 'message': 'No teams found for this division'})
         
         # Calculate which teams need more availability
         total_teams = teams.count()
@@ -1527,7 +1527,7 @@ def send_availability_notifications(request, age_group, tier, season, associatio
             message_lines = [
                 f'Hello {team.name} Team Members,',
                 f'',
-                f'This is an automated notification regarding weekend availability for the {association.name} {age_group} {tier} league ({season} season).',
+                f'This is an automated notification regarding weekend availability for the {association.name} {age_group} {tier} division ({season} season).',
                 f'',
                 f'Your team currently needs to add more weekend availability dates:',
                 f'',
@@ -1551,10 +1551,10 @@ def send_availability_notifications(request, age_group, tier, season, associatio
                 f'',
                 f'Adding sufficient availability helps ensure all your matches can be scheduled.',
                 f'',
-                f'If you have any questions, please contact your team manager or the league administrator.',
+                f'If you have any questions, please contact your team manager or the division administrator.',
                 f'',
                 f'Best regards,',
-                f'{association.name} League Management System'
+                f'{association.name} Division Management System'
             ])
             
             message = '\n'.join(message_lines)

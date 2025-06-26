@@ -1,13 +1,13 @@
 {% extends "users/base.html" %}
-{% block title %}League Calendar{% endblock %}
+{% block title %}Division Calendar{% endblock %}
 {% block content %}
-<h2>{{ association.name }} League Calendar - {{age_group}} {{tier}} ({{season}})</h2>
+<h2>{{ association.name }} Division Calendar - {{age_group}} {{tier}} ({{season}})</h2>
 <div class="mb-3">
     <span style="color: #87CEFA; font-weight: bold;">Home</span>
     <span style="margin: 0 1em;"></span>
     <span style="color: #ffb366; font-weight: bold;">Away</span>
 </div>
-<div id="leagueCalendar"></div>
+<div id="divisionCalendar"></div>
 
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -21,16 +21,16 @@
 }
 </style>
 
-<script id="league-events-json" type="application/json">{{ events_json|safe }}</script>
+<script id="division-events-json" type="application/json">{{ events_json|safe }}</script>
 
 <script>
 function parseEvents() {
-    const raw = document.getElementById('league-events-json');
+    const raw = document.getElementById('division-events-json');
     if (!raw) return [];
     try { return JSON.parse(raw.textContent); } catch { return []; }
 }
 document.addEventListener('DOMContentLoaded', function() {
-    const calendarEl = document.getElementById('leagueCalendar');
+    const calendarEl = document.getElementById('divisionCalendar');
     const events = parseEvents();
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',

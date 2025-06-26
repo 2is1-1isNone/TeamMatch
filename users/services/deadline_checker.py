@@ -40,37 +40,37 @@ class ScheduleDeadlineChecker:
             self.should_stop.wait(300)  # 5 minutes = 300 seconds
     
     def _check_deadlines(self):
-        """Check for leagues that need scheduling"""
+        """Check for divisions that need scheduling"""
         # Import here to avoid circular imports
-        from users.models import LeagueSchedulingState
+        from users.models import DivisionSchedulingState
         from users.services.schedule_orchestration import SchedulingOrchestrationService
         
         current_time = timezone.now()
-        leagues_to_schedule = LeagueSchedulingState.objects.filter(
+        divisions_to_schedule = DivisionSchedulingState.objects.filter(
             auto_schedule_enabled=True,
             status='waiting',
             availability_deadline__lte=current_time
         )
         
-        for league_state in leagues_to_schedule:
+        for division_state in divisions_to_schedule:
             try:
-                logger.info(f"Checking deadline for {league_state}")
+                logger.info(f"Checking deadline for {division_state}")
                 
                 service = SchedulingOrchestrationService(
-                    league_state.age_group, 
-                    league_state.tier, 
-                    league_state.association
+                    division_state.age_group, 
+                    division_state.tier, 
+                    division_state.association
                 )
                 
                 success, message = service.check_and_trigger_scheduling(manual_trigger=False)
                 
                 if success:
-                    logger.info(f"Scheduled {league_state}: {message}")
+                    logger.info(f"Scheduled {division_state}: {message}")
                 else:
-                    logger.warning(f"Could not schedule {league_state}: {message}")
+                    logger.warning(f"Could not schedule {division_state}: {message}")
                     
             except Exception as e:
-                logger.error(f"Error processing {league_state}: {e}")
+                logger.error(f"Error processing {division_state}: {e}")
 
 # Global instance
 deadline_checker = ScheduleDeadlineChecker()

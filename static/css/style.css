@@ -1,0 +1,33 @@
+/* Sidebar styling */
+.sidebar {
+    min-height: calc(100vh - 56px);
+    border-right: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.sidebar .nav-link {
+    color: #333;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0.2rem 0;
+}
+
+.sidebar .nav-link:hover {
+    background-color: #e9ecef;
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    background-color: #0d6efd;
+}
+
+/* Card styling */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* Table styling */
+.table th {
+    width: 40%;
+    background-color: #f8f9fa;
+}

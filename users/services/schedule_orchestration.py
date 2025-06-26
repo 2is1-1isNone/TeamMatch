@@ -1,8 +1,8 @@
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
-from users.models import LeagueSchedulingState, Team, SchedulingNotification
-from users.services.schedule_service import LeagueScheduler  # Enhanced scheduler with doubleheader support
+from users.models import DivisionSchedulingState, Team, SchedulingNotification
+from users.services.schedule_service import DivisionScheduler  # Enhanced scheduler with doubleheader support
 from users.services.dynamic_schedule_manager import DynamicScheduleManager
 import logging
 
@@ -14,14 +14,14 @@ class SchedulingOrchestrationService:
     - Triggers scheduling when deadline is reached AND all teams have minimum availability
     - Or when manually triggered
     - Sends notifications for conflicts and keeps notifying until resolved
-    - Manages the overall scheduling workflow around the core LeagueScheduler
+    - Manages the overall scheduling workflow around the core DivisionScheduler
     """
     def __init__(self, age_group, tier, season, association):
         self.age_group = age_group
         self.tier = tier
         self.season = season
         self.association = association
-        self.league_state, created = LeagueSchedulingState.objects.get_or_create(
+        self.division_state, created = DivisionSchedulingState.objects.get_or_create(
             age_group=age_group,
             tier=tier,
             season=season,
@@ -38,16 +38,16 @@ class SchedulingOrchestrationService:
         logger.info(f"🔍 CHECKING SCHEDULING CONDITIONS for {self.age_group} {self.tier} - {self.association.name}")
         logger.info(f"📋 Manual trigger: {manual_trigger}")
         logger.info(f"📅 Current time: {timezone.now()}")
-        logger.info(f"⏰ Deadline: {self.league_state.availability_deadline}")
-        logger.info(f"🔧 Auto schedule enabled: {self.league_state.auto_schedule_enabled}")
-        logger.info(f"📊 Current status: {self.league_state.status}")
+        logger.info(f"⏰ Deadline: {self.division_state.availability_deadline}")
+        logger.info(f"🔧 Auto schedule enabled: {self.division_state.auto_schedule_enabled}")
+        logger.info(f"📊 Current status: {self.division_state.status}")
         
         if manual_trigger:
             logger.info(f"🔨 MANUAL TRIGGER - Proceeding to schedule generation")
             return self._trigger_scheduling(manual=True)
         
         logger.info(f"🤖 AUTOMATIC TRIGGER - Checking conditions...")
-        should_trigger, reason = self.league_state.should_trigger_scheduling()
+        should_trigger, reason = self.division_state.should_trigger_scheduling()
         logger.info(f"🎯 Should trigger result: {should_trigger}")
         logger.info(f"📝 Reason: {reason}")
         
@@ -60,18 +60,18 @@ class SchedulingOrchestrationService:
     
     def _trigger_scheduling(self, manual=False):
         """
-        Execute the scheduling process using your existing LeagueScheduler
+        Execute the scheduling process using your existing DivisionScheduler
         """
         trigger_reason = "MANUAL TRIGGER" if manual else "AUTOMATIC TRIGGER (DEADLINE REACHED)"
         
         print("=" * 80)
         print(f"🚀 SCHEDULE GENERATION STARTED")
         print("=" * 80) 
-        print(f"📋 League: {self.age_group} {self.tier}")
+        print(f"📋 Division: {self.age_group} {self.tier}")
         print(f"🏢 Association: {self.association.name}")
         print(f"📅 Season: {self.season}")
         print(f"🎯 Trigger Type: {trigger_reason}")
-        print(f"⏰ Deadline was: {self.league_state.availability_deadline}")
+        print(f"⏰ Deadline was: {self.division_state.availability_deadline}")
         print(f"🕐 Current time: {timezone.now()}")
         if not manual:
             print(f"🤖 This schedule was triggered AUTOMATICALLY by the background scheduler")
@@ -82,20 +82,20 @@ class SchedulingOrchestrationService:
         # Enhanced logging for deadline-triggered schedule generation
         logger.info(f"🚀 SCHEDULE GENERATION TRIGGERED for {self.age_group} {self.tier} - {self.association.name}")
         logger.info(f"📅 Trigger reason: {trigger_reason}")
-        logger.info(f"⏰ Deadline was: {self.league_state.availability_deadline}")
+        logger.info(f"⏰ Deadline was: {self.division_state.availability_deadline}")
         logger.info(f"🎯 Current time: {timezone.now()}")
         
         # Update state
-        self.league_state.status = 'triggered'
-        self.league_state.last_schedule_attempt = timezone.now()
-        self.league_state.save()
+        self.division_state.status = 'triggered'
+        self.division_state.last_schedule_attempt = timezone.now()
+        self.division_state.save()
         
-        print(f"🔄 Starting schedule generation process using LeagueScheduler...")
-        logger.info(f"🔄 Starting schedule generation process using LeagueScheduler...")
+        print(f"🔄 Starting schedule generation process using DivisionScheduler...")
+        logger.info(f"🔄 Starting schedule generation process using DivisionScheduler...")
         
         # Use your existing scheduler with all required parameters
-        print(f"🏗️  Creating LeagueScheduler instance...")
-        scheduler = LeagueScheduler(self.age_group, self.tier, self.season, self.association)
+        print(f"🏗️  Creating DivisionScheduler instance...")
+        scheduler = DivisionScheduler(self.age_group, self.tier, self.season, self.association)
         
         print(f"⚙️  Calling scheduler.create_schedule()...")
         schedule, unscheduled_matches = scheduler.create_schedule()
@@ -119,10 +119,10 @@ class SchedulingOrchestrationService:
         """
         logger.info(f"Scheduling conflicts found for {self.age_group} {self.tier}: {len(unscheduled_matches)} unmatched")
         
-        # Update league state
-        self.league_state.status = 'conflicts'
-        self.league_state.schedule_generated_at = timezone.now()
-        self.league_state.save()
+        # Update division state
+        self.division_state.status = 'conflicts'
+        self.division_state.schedule_generated_at = timezone.now()
+        self.division_state.save()
         
         # Identify teams with conflicts
         conflicted_teams = set()
@@ -131,7 +131,7 @@ class SchedulingOrchestrationService:
             conflicted_teams.add(match['away_team'])
         
         # Update unmatched teams
-        self.league_state.unmatched_teams.set(conflicted_teams)
+        self.division_state.unmatched_teams.set(conflicted_teams)
         
         # Send notifications
         self._send_conflict_notifications(conflicted_teams, unscheduled_matches)
@@ -144,11 +144,11 @@ class SchedulingOrchestrationService:
         """
         logger.info(f"Scheduling completed successfully for {self.age_group} {self.tier}")
         
-        # Update league state
-        self.league_state.status = 'completed'
-        self.league_state.schedule_generated_at = timezone.now()
-        self.league_state.unmatched_teams.clear()
-        self.league_state.save()
+        # Update division state
+        self.division_state.status = 'completed'
+        self.division_state.schedule_generated_at = timezone.now()
+        self.division_state.unmatched_teams.clear()
+        self.division_state.save()
         
         # Send success notifications
         teams = Team.objects.filter(
@@ -162,7 +162,7 @@ class SchedulingOrchestrationService:
                 team,
                 'schedule_complete',
                 f"Great news! The schedule for {self.age_group} {self.tier} has been successfully generated. "
-                f"Check the league schedule to see your team's games."
+                f"Check the division schedule to see your team's games."
             )
         
         return True, "Schedule generated successfully"
@@ -209,7 +209,7 @@ class SchedulingOrchestrationService:
         Create a notification record
         """
         SchedulingNotification.objects.create(
-            league_state=self.league_state,
+            division_state=self.division_state,
             team=team,
             notification_type=notification_type,
             message=message        )
@@ -240,7 +240,7 @@ class SchedulingOrchestrationService:
         from users.models import GeneratedSchedule, ScheduleMatch
         
         logger.info(f"💾 SAVING GENERATED SCHEDULE TO DATABASE")
-          # Delete any existing schedules for this league first (to avoid duplicates)
+          # Delete any existing schedules for this division first (to avoid duplicates)
         existing_schedules = GeneratedSchedule.objects.filter(
             age_group=self.age_group,
             tier=self.tier,
@@ -315,16 +315,16 @@ class SchedulingOrchestrationService:
         """
         Send daily reminders to teams with unresolved conflicts
         """
-        if self.league_state.status != 'conflicts':
+        if self.division_state.status != 'conflicts':
             return
         
         # Check if 24 hours have passed since last notification
-        if (self.league_state.last_notification_sent and 
-            timezone.now() - self.league_state.last_notification_sent < timezone.timedelta(hours=24)):
+        if (self.division_state.last_notification_sent and 
+            timezone.now() - self.division_state.last_notification_sent < timezone.timedelta(hours=24)):
             return
         
         # Send reminders to unmatched teams
-        for team in self.league_state.unmatched_teams.all():
+        for team in self.division_state.unmatched_teams.all():
             message = (
                 f"Daily Reminder: Your team {team.name} still has scheduling conflicts. "
                 f"Please add more weekend availability dates to resolve these issues."
@@ -334,15 +334,15 @@ class SchedulingOrchestrationService:
             self._send_email_notification(team, 'Daily Reminder - Schedule Conflicts', message)
         
         # Update last notification time
-        self.league_state.last_notification_sent = timezone.now()
-        self.league_state.save()
+        self.division_state.last_notification_sent = timezone.now()
+        self.division_state.save()
     
     def check_for_new_availability(self):
         """
         Check if teams have added new availability since last conflict
         If so, re-trigger scheduling
         """
-        if self.league_state.status != 'conflicts':
+        if self.division_state.status != 'conflicts':
             return
         
         # Check if any team has added dates since last attempt
@@ -355,7 +355,7 @@ class SchedulingOrchestrationService:
         new_dates_added = False
         for team in teams:
             recent_dates = team.dates.filter(
-                created_at__gt=self.league_state.last_schedule_attempt
+                created_at__gt=self.division_state.last_schedule_attempt
             )
             if recent_dates.exists():
                 new_dates_added = True
@@ -371,27 +371,27 @@ class SchedulingOrchestrationService:
         """
         Schedule a Celery task to trigger scheduling at the availability deadline
         """
-        return DynamicScheduleManager.schedule_league_deadline(self.league_state)
+        return DynamicScheduleManager.schedule_division_deadline(self.division_state)
     
     def cancel_deadline_task(self):
         """
-        Cancel the scheduled deadline task for this league
+        Cancel the scheduled deadline task for this division
         """
-        DynamicScheduleManager.cancel_existing_task(self.league_state)
+        DynamicScheduleManager.cancel_existing_task(self.division_state)
     
     def reschedule_deadline_task(self):
         """
         Reschedule the deadline task (useful when deadline is changed)
         """
-        return DynamicScheduleManager.reschedule_league_deadline(self.league_state)
+        return DynamicScheduleManager.reschedule_division_deadline(self.division_state)
 
 def run_daily_scheduling_checks():
     """
     Function to be called daily (via cron job or scheduled task)
     """
     logger.info("Running daily scheduling checks")
-      # Check all active league states
-    active_states = LeagueSchedulingState.objects.filter(
+      # Check all active division states
+    active_states = DivisionSchedulingState.objects.filter(
         status__in=['waiting', 'conflicts']
     )
     for state in active_states:

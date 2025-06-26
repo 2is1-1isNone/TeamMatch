@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     User, Association, Club, Team, TeamDate, TeamInvite, 
-    Schedule, ScheduleProposal, LeagueSchedulingState, SchedulingNotification
+    Schedule, ScheduleProposal, DivisionSchedulingState, SchedulingNotification
 )
 
 @admin.register(User)
@@ -36,8 +36,8 @@ class TeamDateAdmin(admin.ModelAdmin):
     search_fields = ['team__name']
     list_filter = ['is_home', 'allow_doubleheader', 'date', 'team__age_group', 'team__tier']
 
-@admin.register(LeagueSchedulingState)
-class LeagueSchedulingStateAdmin(admin.ModelAdmin):
+@admin.register(DivisionSchedulingState)
+class DivisionSchedulingStateAdmin(admin.ModelAdmin):
     list_display = [
         'association', 'age_group', 'tier', 'status', 
         'availability_deadline', 'schedule_generated_at', 'auto_schedule_enabled'
@@ -51,7 +51,7 @@ class LeagueSchedulingStateAdmin(admin.ModelAdmin):
     filter_horizontal = ['unmatched_teams']
     
     fieldsets = (
-        ('League Info', {
+        ('Division Info', {
             'fields': ('association', 'age_group', 'tier')
         }),
         ('Scheduling Configuration', {
@@ -73,19 +73,19 @@ class LeagueSchedulingStateAdmin(admin.ModelAdmin):
 @admin.register(SchedulingNotification)
 class SchedulingNotificationAdmin(admin.ModelAdmin):
     list_display = [
-        'team', 'league_state', 'notification_type', 
+        'team', 'division_state', 'notification_type', 
         'sent_at', 'acknowledged'
     ]
-    search_fields = ['team__name', 'league_state__association__name']
+    search_fields = ['team__name', 'division_state__association__name']
     list_filter = [
         'notification_type', 'acknowledged', 'sent_at',
-        'league_state__age_group', 'league_state__tier'
+        'division_state__age_group', 'division_state__tier'
     ]
     readonly_fields = ['sent_at']
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'team', 'league_state', 'league_state__association'
+            'team', 'division_state', 'division_state__association'
         )
 
 # Register other models without custom admin classes

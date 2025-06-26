@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>{{ association.name }} League Schedule for {{age_group}} {{tier}} ({{season}})</h2>
+    <h2>{{ association.name }} Division Schedule for {{age_group}} {{tier}} ({{season}})</h2>
     <div>
         <!-- <span class="badge bg-primary">{{ age_group }} {{ tier }}</span> -->
         <br>
@@ -18,11 +18,11 @@
     <i class="fas fa-info-circle"></i> You are viewing this as an association administrator
 </div>
 
-<!-- League Scheduling Settings Section -->
+<!-- Division Scheduling Settings Section -->
 <div class="card mb-4">
     <div class="card-header">
         <h5 class="mb-0">
-            <i class="fas fa-cog"></i> League Scheduling Settings
+            <i class="fas fa-cog"></i> Division Scheduling Settings
         </h5>
     </div>
     <div class="card-body">
@@ -38,7 +38,7 @@
                        class="form-control" 
                        id="availability_deadline" 
                        name="availability_deadline"
-                       value="{{ league_state.availability_deadline|date:'Y-m-d\TH:i' }}"
+                       value="{{ division_state.availability_deadline|date:'Y-m-d\TH:i' }}"
                        required>
                 <div class="form-text">Teams must enter their availability by this date</div>
             </div>
@@ -50,7 +50,7 @@
                            type="checkbox" 
                            id="auto_schedule_enabled" 
                            name="auto_schedule_enabled"
-                           {% if league_state.auto_schedule_enabled %}checked{% endif %}>
+                           {% if division_state.auto_schedule_enabled %}checked{% endif %}>
                     <label class="form-check-label" for="auto_schedule_enabled">
                         Automatically trigger scheduling when deadline reached and all teams ready
                     </label>
@@ -69,22 +69,22 @@
         <div class="row">
             <div class="col-md-6">
                 <h6>Current Status:</h6>
-                {% if league_state.status == 'waiting' %}
-                    <span class="badge bg-secondary">{{ league_state.get_status_display }}</span>
-                {% elif league_state.status == 'triggered' %}
-                    <span class="badge bg-info">{{ league_state.get_status_display }}</span>
-                {% elif league_state.status == 'conflicts' %}
-                    <span class="badge bg-warning">{{ league_state.get_status_display }}</span>
-                {% elif league_state.status == 'completed' %}
-                    <span class="badge bg-success">{{ league_state.get_status_display }}</span>
-                {% elif league_state.status == 'manual_hold' %}
-                    <span class="badge bg-danger">{{ league_state.get_status_display }}</span>
+                {% if division_state.status == 'waiting' %}
+                    <span class="badge bg-secondary">{{ division_state.get_status_display }}</span>
+                {% elif division_state.status == 'triggered' %}
+                    <span class="badge bg-info">{{ division_state.get_status_display }}</span>
+                {% elif division_state.status == 'conflicts' %}
+                    <span class="badge bg-warning">{{ division_state.get_status_display }}</span>
+                {% elif division_state.status == 'completed' %}
+                    <span class="badge bg-success">{{ division_state.get_status_display }}</span>
+                {% elif division_state.status == 'manual_hold' %}
+                    <span class="badge bg-danger">{{ division_state.get_status_display }}</span>
                 {% endif %}
             </div>
             <div class="col-md-6">
                 <h6>Last Attempt:</h6>
-                {% if league_state.last_schedule_attempt %}
-                    {{ league_state.last_schedule_attempt|date:"M d, Y g:i A" }}
+                {% if division_state.last_schedule_attempt %}
+                    {{ division_state.last_schedule_attempt|date:"M d, Y g:i A" }}
                 {% else %}
                     <em>Never attempted</em>
                 {% endif %}
@@ -97,7 +97,7 @@
 <!-- Toggle View Buttons -->
 <div class="btn-group mb-3" role="group" aria-label="Toggle schedule view">
     <a href="#" class="btn btn-primary active" aria-current="page">Table View</a>
-    <a href="{% url 'league_calendar' age_group tier season association.id %}" class="btn btn-outline-primary">Calendar View</a>
+    <a href="{% url 'division_calendar' age_group tier season association.id %}" class="btn btn-outline-primary">Calendar View</a>
 </div>
 <table class="table table-striped" id="scheduled-matches-table">    <thead>
         <tr>
@@ -159,7 +159,7 @@
 <h2>Team Availability</h2>
 <div class="alert alert-info mb-3">
     <i class="fas fa-info-circle"></i> 
-    <strong>League Requirements:</strong> Each team needs <strong>{{ teams_with_availability.0.required_series|default:"0" }} home weekend series</strong> and <strong>{{ teams_with_availability.0.required_series|default:"0" }} away weekend series</strong> to schedule against all other teams.
+    <strong>Division Requirements:</strong> Each team needs <strong>{{ teams_with_availability.0.required_series|default:"0" }} home weekend series</strong> and <strong>{{ teams_with_availability.0.required_series|default:"0" }} away weekend series</strong> to schedule against all other teams.
     <small class="d-block mt-1">A weekend series consists of consecutive dates (e.g., Saturday-Sunday).</small>
 </div>
 <table class="table table-bordered">

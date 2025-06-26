@@ -3,7 +3,7 @@ from users.models import Team, TeamDate, ScheduleProposal
 from django.db.models import Q
 import random
 
-class LeagueScheduler:
+class DivisionScheduler:
     def __init__(self, age_group, tier, season, association):
         self.age_group = age_group
         self.tier = tier
@@ -105,11 +105,11 @@ class LeagueScheduler:
         return True
     
     def create_schedule(self):
-        """Create the league schedule with doubleheader priority and proper weekend series only"""
+        """Create the division schedule with doubleheader priority and proper weekend series only"""
         print("=" * 80)
-        print("🏒 LEAGUE SCHEDULER STARTED - ATTEMPTING TO CREATE SCHEDULE")
+        print("🏒 DIVISION SCHEDULER STARTED - ATTEMPTING TO CREATE SCHEDULE")
         print("=" * 80)
-        print(f"📋 League: {self.age_group} {self.tier}")
+        print(f"📋 Division: {self.age_group} {self.tier}")
         print(f"📅 Season: {self.season}")
         print(f"🏢 Association: {self.association.name}")
         print(f"👥 Teams: {self.teams.count()}")

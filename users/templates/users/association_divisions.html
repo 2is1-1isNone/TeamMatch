@@ -1,13 +1,13 @@
 {% extends "users/base.html" %}
 {% load static %}
 
-{% block title %}{{ association.name }} Leagues{% endblock %}
+{% block title %}{{ association.name }} Divisions{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
-            <i class="fas fa-trophy"></i> {{ association.name }} Leagues
+            <i class="fas fa-trophy"></i> {{ association.name }} Divisions
         </h2>
         <a href="{% url 'dashboard' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Dashboard
@@ -34,27 +34,27 @@
     {% endif %}
 
     <!-- Bootstrap Tabs -->
-    <ul class="nav nav-tabs" id="leaguesTabs" role="tablist">
+    <ul class="nav nav-tabs" id="divisionsTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="all-leagues-tab" data-bs-toggle="tab" data-bs-target="#all-leagues" type="button" role="tab" aria-controls="all-leagues" aria-selected="true">
-                <i class="fas fa-list"></i> All Leagues
+            <button class="nav-link active" id="all-divisions-tab" data-bs-toggle="tab" data-bs-target="#all-divisions" type="button" role="tab" aria-controls="all-divisions" aria-selected="true">
+                <i class="fas fa-list"></i> All Divisions
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="league-settings-tab" data-bs-toggle="tab" data-bs-target="#league-settings" type="button" role="tab" aria-controls="league-settings" aria-selected="false">
-                <i class="fas fa-cog"></i> League Settings
+            <button class="nav-link" id="division-settings-tab" data-bs-toggle="tab" data-bs-target="#division-settings" type="button" role="tab" aria-controls="division-settings" aria-selected="false">
+                <i class="fas fa-cog"></i> Division Settings
             </button>
         </li>
     </ul>
 
     <!-- Tab Content -->
-    <div class="tab-content mt-3" id="leaguesTabContent">
-        <!-- All Leagues Tab -->
-        <div class="tab-pane fade show active" id="all-leagues" role="tabpanel" aria-labelledby="all-leagues-tab">
-            {% if leagues %}            <div class="card">
+    <div class="tab-content mt-3" id="divisionsTabContent">
+        <!-- All Divisions Tab -->
+        <div class="tab-pane fade show active" id="all-divisions" role="tabpanel" aria-labelledby="all-divisions-tab">
+            {% if divisions %}            <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-list"></i> League Overview
+                        <i class="fas fa-list"></i> Division Overview
                     </h5>
                 </div>
                 <div class="card-body">
@@ -72,53 +72,53 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for league in leagues %}
+                                {% for division in divisions %}
                                 <tr>
                                     <td>
-                                        <span class="badge bg-primary">{{ league.season }}</span>
+                                        <span class="badge bg-primary">{{ division.season }}</span>
                                     </td>
                                     <td>
-                                        <strong>{{ league.age_group }}</strong>
+                                        <strong>{{ division.age_group }}</strong>
                                     </td>
                                     <td>
-                                        <span class="badge bg-info">{{ league.tier }}</span>
+                                        <span class="badge bg-info">{{ division.tier }}</span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ league.team_count }} team{{ league.team_count|pluralize }}</span>
+                                        <span class="badge bg-secondary">{{ division.team_count }} team{{ division.team_count|pluralize }}</span>
                                     </td>
                                     <td>
-                                        {% if league.league_state.status == 'waiting' %}
-                                            <span class="badge bg-secondary">{{ league.league_state.get_status_display }}</span>
-                                        {% elif league.league_state.status == 'triggered' %}
-                                            <span class="badge bg-info">{{ league.league_state.get_status_display }}</span>
-                                        {% elif league.league_state.status == 'conflicts' %}
-                                            <span class="badge bg-warning">{{ league.league_state.get_status_display }}</span>
-                                        {% elif league.league_state.status == 'completed' %}
-                                            <span class="badge bg-success">{{ league.league_state.get_status_display }}</span>
-                                        {% elif league.league_state.status == 'manual_hold' %}
-                                            <span class="badge bg-danger">{{ league.league_state.get_status_display }}</span>
+                                        {% if division.division_state.status == 'waiting' %}
+                                            <span class="badge bg-secondary">{{ division.division_state.get_status_display }}</span>
+                                        {% elif division.division_state.status == 'triggered' %}
+                                            <span class="badge bg-info">{{ division.division_state.get_status_display }}</span>
+                                        {% elif division.division_state.status == 'conflicts' %}
+                                            <span class="badge bg-warning">{{ division.division_state.get_status_display }}</span>
+                                        {% elif division.division_state.status == 'completed' %}
+                                            <span class="badge bg-success">{{ division.division_state.get_status_display }}</span>
+                                        {% elif division.division_state.status == 'manual_hold' %}
+                                            <span class="badge bg-danger">{{ division.division_state.get_status_display }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         <small class="text-muted">
-                                            {{ league.league_state.availability_deadline|date:"M d, Y g:i A" }}
+                                            {{ division.division_state.availability_deadline|date:"M d, Y g:i A" }}
                                         </small>
                                     </td>
                                     <td>
-                                        <div class="btn-group" role="group" aria-label="League actions">
-                                            <a href="{% url 'league_schedule' league.age_group league.tier league.season association.id %}" 
+                                        <div class="btn-group" role="group" aria-label="Division actions">
+                                            <a href="{% url 'division_schedule' division.age_group division.tier division.season association.id %}" 
                                                class="btn btn-sm btn-primary" 
                                                title="Manage Schedule">
                                                 <i class="fas fa-calendar-alt"></i>
                                             </a>
-                                            <a href="{% url 'league_calendar' league.age_group league.tier league.season association.id %}" 
+                                            <a href="{% url 'division_calendar' division.age_group division.tier division.season association.id %}" 
                                                class="btn btn-sm btn-outline-primary" 
                                                title="View Calendar">
                                                 <i class="fas fa-calendar"></i>
                                             </a>
-                                            {% if league.team_count > 0 %}
+                                            {% if division.team_count > 0 %}
                                             <button class="btn btn-sm btn-outline-secondary" 
-                                                    onclick="showTeams('{{ league.age_group }}', '{{ league.tier }}', '{{ league.season }}')"
+                                                    onclick="showTeams('{{ division.age_group }}', '{{ division.tier }}', '{{ division.season }}')"
                                                     title="View Teams">
                                                 <i class="fas fa-users"></i>
                                             </button>
@@ -135,13 +135,13 @@
             {% else %}
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i>
-                <strong>No leagues found.</strong> Leagues are created automatically when teams are added to clubs in this association.
+                <strong>No divisions found.</strong> Divisions are created automatically when teams are added to clubs in this association.
             </div>
             {% endif %}
         </div>
 
-        <!-- League Settings Tab -->
-        <div class="tab-pane fade" id="league-settings" role="tabpanel" aria-labelledby="league-settings-tab">
+        <!-- Division Settings Tab -->
+        <div class="tab-pane fade" id="division-settings" role="tabpanel" aria-labelledby="division-settings-tab">
             <!-- Season Settings Section -->
             <div class="card mb-3">
                 <div class="card-header">
@@ -152,7 +152,7 @@
                 <div class="card-body">
                     <form method="post" class="row g-3">
                         {% csrf_token %}
-                        <input type="hidden" name="update_league_settings" value="1">
+                        <input type="hidden" name="update_division_settings" value="1">
                         
                         <div class="col-md-6">
                             <label for="season_start" class="form-label">
@@ -162,7 +162,7 @@
                                    class="form-control" 
                                    id="season_start" 
                                    name="season_start"
-                                   value="{{ league_settings.season_start }}">
+                                   value="{{ division_settings.season_start }}">
                             <div class="form-text">When the season officially begins</div>
                         </div>
                         
@@ -174,7 +174,7 @@
                                    class="form-control" 
                                    id="season_end" 
                                    name="season_end"
-                                   value="{{ league_settings.season_end }}">
+                                   value="{{ division_settings.season_end }}">
                             <div class="form-text">When the season officially ends</div>
                         </div>
                         
@@ -207,20 +207,20 @@
                                    class="form-control" 
                                    id="scheduling_deadline_bulk" 
                                    name="scheduling_deadline"
-                                   value="{{ league_settings.scheduling_deadline }}">
+                                   value="{{ division_settings.scheduling_deadline }}">
                             <div class="form-text">When teams must submit their availability</div>
                         </div>
                         
                         <div class="col-md-4 d-flex align-items-end">
                             <button type="button" class="btn btn-warning w-100" onclick="confirmBulkUpdate()">
-                                <i class="fas fa-calendar-alt"></i> Set for All Leagues
+                                <i class="fas fa-calendar-alt"></i> Set for All Divisions
                             </button>
                         </div>
                         
                         <div class="col-12">
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle"></i>
-                                <strong>Note:</strong> This will update the scheduling deadline for all leagues in your association.
+                                <strong>Note:</strong> This will update the scheduling deadline for all divisions in your association.
                                 Teams will need to submit their availability by this deadline for automatic scheduling to trigger.
                             </div>
                         </div>
@@ -238,7 +238,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="teamsModalLabel">League Teams</h5>
+                    <h5 class="modal-title" id="teamsModalLabel">Division Teams</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -252,15 +252,15 @@
 </div>
 
 <script>
-const leaguesData = {{ leagues_json|safe }};
+const divisionsData = {{ leagues_json|safe }};
 
 // Handle tab switching and show appropriate tab based on form submissions
 document.addEventListener('DOMContentLoaded', function() {
-    // If there are messages related to settings, switch to the League Settings tab
+    // If there are messages related to settings, switch to the Division Settings tab
     {% if messages %}
         {% for message in messages %}
             {% if 'season' in message|lower or 'deadline' in message|lower or 'settings' in message|lower %}
-                const settingsTab = new bootstrap.Tab(document.getElementById('league-settings-tab'));
+                const settingsTab = new bootstrap.Tab(document.getElementById('division-settings-tab'));
                 settingsTab.show();
                 break;
             {% endif %}
@@ -269,15 +269,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function showTeams(ageGroup, tier, season) {
-    const league = leaguesData.find(l => l.age_group === ageGroup && l.tier === tier && l.season === season);
+    const division = divisionsData.find(l => l.age_group === ageGroup && l.tier === tier && l.season === season);
     
-    if (league && league.teams) {
+    if (division && division.teams) {
         let teamsHtml = `
             <h6>${ageGroup} ${tier} ${season} Teams:</h6>
             <div class="list-group">
         `;
         
-        league.teams.forEach(team => {
+        division.teams.forEach(team => {
             teamsHtml += `
                 <div class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
@@ -304,7 +304,7 @@ function confirmBulkUpdate() {
     const schedulingDeadline = document.getElementById('scheduling_deadline_bulk').value;
     
     if (!schedulingDeadline) {
-        alert('Please set a scheduling deadline before applying to all leagues.');
+        alert('Please set a scheduling deadline before applying to all divisions.');
         return;
     }
     
@@ -312,7 +312,7 @@ function confirmBulkUpdate() {
     const deadlineDate = new Date(schedulingDeadline);
     const formattedDate = deadlineDate.toLocaleString();
     
-    const confirmMessage = `Clicking 'Yes' will set all scheduling deadlines for all leagues to ${formattedDate}.\n\nAre you sure you want to continue?`;
+    const confirmMessage = `Clicking 'Yes' will set all scheduling deadlines for all divisions to ${formattedDate}.\n\nAre you sure you want to continue?`;
     
     if (confirm(confirmMessage)) {
         // Set the hidden field to indicate applying to all

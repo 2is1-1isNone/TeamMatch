@@ -102,8 +102,8 @@ class ScheduleProposal(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-class LeagueSchedulingState(models.Model):
-    """Tracks the scheduling state for each league (age_group + tier + season combination)"""
+class DivisionSchedulingState(models.Model):
+    """Tracks the scheduling state for each division (age_group + tier + season combination)"""
     
     SCHEDULING_STATUS_CHOICES = [
         ('waiting', 'Waiting for Deadline/Conditions'),        ('triggered', 'Scheduling Triggered'),
@@ -115,7 +115,7 @@ class LeagueSchedulingState(models.Model):
     age_group = models.CharField(max_length=5, choices=Team.AGE_GROUPS)
     tier = models.CharField(max_length=3, choices=Team.TIERS)
     season = models.CharField(max_length=9, default="2024-2025")  # e.g., "2024-2025"
-    association = models.ForeignKey(Association, on_delete=models.CASCADE, related_name='league_states')
+    association = models.ForeignKey(Association, on_delete=models.CASCADE, related_name='division_states')
     
     # Scheduling configuration
     availability_deadline = models.DateTimeField()
@@ -128,7 +128,7 @@ class LeagueSchedulingState(models.Model):
     schedule_generated_at = models.DateTimeField(null=True, blank=True)
     
     # Conflict tracking
-    unmatched_teams = models.ManyToManyField(Team, blank=True, related_name='league_conflicts')
+    unmatched_teams = models.ManyToManyField(Team, blank=True, related_name='division_conflicts')
     last_notification_sent = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -158,7 +158,7 @@ class LeagueSchedulingState(models.Model):
         )
         
         if teams.count() < 2:
-            return False, "Insufficient teams in league"
+            return False, "Insufficient teams in division"
         
         required_series = teams.count() - 1
         all_teams_ready = True
@@ -211,7 +211,7 @@ class SchedulingNotification(models.Model):
         ('schedule_complete', 'Schedule Complete')
     ]
     
-    league_state = models.ForeignKey(LeagueSchedulingState, on_delete=models.CASCADE, related_name='notifications')
+    division_state = models.ForeignKey(DivisionSchedulingState, on_delete=models.CASCADE, related_name='notifications')
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='scheduling_notifications')
     notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
     message = models.TextField()
@@ -225,9 +225,9 @@ class SchedulingNotification(models.Model):
         return f"{self.team.name} - {self.notification_type} - {self.sent_at}"
 
 class GeneratedSchedule(models.Model):
-    """Stores generated league schedules with matches and metadata"""
+    """Stores generated division schedules with matches and metadata"""
     
-    # League identification
+    # Division identification
     age_group = models.CharField(max_length=5, choices=Team.AGE_GROUPS)
     tier = models.CharField(max_length=3, choices=Team.TIERS)
     season = models.CharField(max_length=9, default="2024-2025")
