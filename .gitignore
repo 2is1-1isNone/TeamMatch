@@ -49,6 +49,13 @@ ProductRequirements.txt
 git_commit_commands.txt
 replace_*.py
 
+# Maintenance and cleanup scripts
+cleanup_*.py
+setup_*.py
+*_DELETE.py
+*_test.py
+migrate_*.py
+
 # Test data and testing
 TESTING/
 users/testdata/
