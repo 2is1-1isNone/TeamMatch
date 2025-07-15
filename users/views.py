@@ -706,9 +706,6 @@ def delete_association(request, association_id):
 
 @login_required
 def generate_division_schedule(request, age_group, tier, season, association_id):
-    print(f"=== GENERATE_DIVISION_SCHEDULE CALLED ===")
-    print(f"Params: {age_group}/{tier}/{season}/{association_id}")
-    
     # Get the association and validate access
     try:
         association = Association.objects.get(id=association_id)
@@ -738,19 +735,6 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
         deadline_str = request.POST.get('availability_deadline')
         auto_schedule = request.POST.get('auto_schedule_enabled') == 'on'
         
-        print("=" * 80)
-        print("📅 AVAILABILITY DEADLINE UPDATE TRIGGERED")
-        print("=" * 80)
-        print(f"🏢 Association: {association.name}")
-        print(f"📋 Division: {age_group} {tier} ({season})")
-        print(f"👤 User: {request.user.username} (ID: {request.user.id})")
-        print(f"⏰ Old Deadline: {division_state.availability_deadline}")
-        print(f"🔧 Old Auto-Schedule: {division_state.auto_schedule_enabled}")
-        print(f"📝 New Deadline (raw): {deadline_str}")
-        print(f"🔧 New Auto-Schedule: {auto_schedule}")
-        print(f"⏰ Timestamp: {timezone.now()}")
-        print("=" * 80)
-        
         if deadline_str:
             try:
                 from datetime import datetime
@@ -759,36 +743,24 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
                 deadline = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
                 new_deadline = timezone.make_aware(deadline)
                 
-                print(f"✅ Parsed Deadline (Pacific): {new_deadline}")
-                print(f"📊 Division State ID: {division_state.id}")
-                
                 division_state.availability_deadline = new_deadline
                 division_state.auto_schedule_enabled = auto_schedule
                 # Reset status to 'waiting' so the background scheduler will pick it up
                 division_state.status = 'waiting'
                 division_state.save()
                 
-                print(f"💾 Division state saved successfully!")
-                print(f"   New deadline: {division_state.availability_deadline}")
-                print(f"   Auto-schedule: {division_state.auto_schedule_enabled}")
-                print(f"   Status reset to: {division_state.status}")
-                
                 # Create orchestration service and reschedule deadline task
                 orchestration_service = SchedulingOrchestrationService(age_group, tier, season, association)
                 task_id = orchestration_service.reschedule_deadline_task()
                 
                 if task_id:
-                    print(f"🚀 Background task scheduled with ID: {task_id}")
-                    messages.success(request, f"Division scheduling settings updated and deadline task scheduled (Task ID: {task_id[:8]}...)!")
+                    messages.success(request, f"Division scheduling settings updated and deadline task scheduled!")
                 else:
-                    print(f"⚠️ No background task scheduled")
                     messages.success(request, "Division scheduling settings updated!")
                     
             except ValueError:
-                print(f"❌ ERROR: Invalid deadline format: {deadline_str}")
                 messages.error(request, "Invalid deadline format. Please use the date picker.")
             except Exception as e:
-                print(f"❌ ERROR: {str(e)}")
                 messages.error(request, f"Error scheduling deadline task: {str(e)}")
         
         return redirect('division_schedule', age_group=age_group, tier=tier, season=season, association_id=association_id)
