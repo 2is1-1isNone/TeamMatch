@@ -6,9 +6,12 @@ from .forms import EmailAuthenticationForm
 urlpatterns = [
     path('', views.home, name='home'),
     path('register/', views.register, name='register'),
-    path('team/new/', views.team_profile, name='team_profile_create'),
+    path('team/new/', views.create_team, name='create_team'),
+    path('user/new/', views.create_user, name='create_user'),
+    path('club/new/', views.create_club, name='create_club'),
+    path('association/new/', views.create_association, name='create_association'),
     path('accounts/login/', auth_views.LoginView.as_view(authentication_form=EmailAuthenticationForm), name='login'),
-    path('dashboard/', views.dashboard, name='dashboard'),  # <-- Add this line
+    path('home/', views.user_home, name='home'),  # <-- Add this line
     path('profile/', views.user_profile, name='user_profile'),
     path('profile/edit/', views.edit_user_profile, name='edit_user_profile'),
     path('team/<int:team_id>/delete/', views.delete_team, name='delete_team'),
@@ -40,4 +43,6 @@ urlpatterns = [
     path('send-unscheduled-notifications/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.send_unscheduled_notifications, name='send_unscheduled_notifications'),
     path('send-availability-notifications/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.send_availability_notifications, name='send_availability_notifications'),
     path('division-calendar/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.division_calendar, name='division_calendar'),
+    path('division/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.division_page, name='division_page'),
+    path('division/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/teams/', views.division_teams, name='division_teams'),
 ]

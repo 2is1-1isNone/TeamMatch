@@ -1,12 +1,30 @@
-{% extends "users/team_base.html" %}
+{% extends "users/base.html" %}
 {% load django_bootstrap5 %}
 
-{% block team_content %}
-<div class="container-fluid py-4">
+{% block title %}{{ team.name }} Profile{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb Navigation -->
+<div class="container-fluid mb-3" style="background-color: white; border-bottom: 1px solid #dee2e6; padding: 15px 0;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{% url 'home' %}" class="text-decoration-none">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <i class="fas fa-users"></i> {{ team.name }} Profile
+            </li>
+        </ol>
+    </nav>
+</div>
+
+<div class="container-fluid">
     {% if team %}
-        <!-- Existing Team Profile View -->
+        <!-- Team Profile View -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>{{ team.name }}</h2>
+            <h3>{{ team.name }} Profile</h3>
             {% if user in team.admins.all %}
                 <button id="edit-btn" class="btn btn-warning" onclick="toggleEdit()">Edit</button>
             {% endif %}
@@ -266,7 +284,7 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary">Create Team</button>
-                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+                    <a href="{% url 'home' %}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>

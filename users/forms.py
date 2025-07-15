@@ -93,7 +93,22 @@ class EmailAuthenticationForm(AuthenticationForm):
 class ClubForm(forms.ModelForm):
     class Meta:
         model = Club
-        fields = ['name', 'association']
+        fields = ['name', 'association', 'location', 'members']
+        widgets = {
+            'members': forms.CheckboxSelectMultiple(),
+        }
+        help_texts = {
+            'location': 'Club\'s primary location (e.g., city, rink, or address)',
+            'members': 'Select users who are members of this club',
+        }
+    
+    def save(self, commit=True):
+        club = super().save(commit=commit)
+        if commit:
+            # Ensure all admins are also members
+            for admin in club.admins.all():
+                club.members.add(admin)
+        return club
 
 class AssociationForm(forms.ModelForm):
     class Meta:

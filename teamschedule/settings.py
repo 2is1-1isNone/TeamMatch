@@ -15,45 +15,44 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialize environment variables
-env = environ.Env()
+env = environ.Env(
+    DEBUG=(bool, False),  # Default to False for production safety
+    SECRET_KEY=(str, ''),
+    DB_NAME=(str, 'teamschedule'),
+    DB_USER=(str, 'postgres'),
+    DB_PASSWORD=(str, ''),
+    DB_HOST=(str, 'localhost'),
+    DB_PORT=(str, '5432'),
+    EMAIL_HOST_USER=(str, ''),
+    EMAIL_HOST_PASSWORD=(str, ''),
+)
+
+# Read .env file
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env('SECRET_KEY')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env('DEBUG')
+
+# Parse ALLOWED_HOSTS from environment variable
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
 # Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'teamschedule',
-        'USER': 'postgres',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
         'PASSWORD': env('DB_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '1911',
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p1=bwho#i_g&az7vwax6*b!)dnlcrjwbi&br92p-w9qt%&jf0s'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*.ngrok-free.app', '*.ngrok.io', '2ca7-149-40-62-96.ngrok-free.app']
-
-# CSRF trusted origins for ngrok
-CSRF_TRUSTED_ORIGINS = [
-    'https://2ca7-149-40-62-96.ngrok-free.app',
-    'http://2ca7-149-40-62-96.ngrok-free.app',
-    'https://*.ngrok-free.app',
-    'http://*.ngrok-free.app',
-    'https://*.ngrok.io',
-    'http://*.ngrok.io',
-]
+# CSRF trusted origins - add your domain when deploying
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 
 
 # Application definition
@@ -97,6 +96,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'users.context_processors.user_navigation_context',
             ],
         },
     },
@@ -146,7 +146,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
+LOGIN_REDIRECT_URL = '/home/'
 AUTHENTICATION_BACKENDS = [
     'users.backends.EmailBackend',  # <-- Add this line
     'django.contrib.auth.backends.ModelBackend',
@@ -159,7 +159,7 @@ LOGOUT_REDIRECT_URL = '/'
 # For development/testing - uncomment the next line to print emails to console
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# For production - Gmail SMTP configuration
+# For production - SMTP configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -167,9 +167,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
-# Set the default from email to your Gmail address
+# Set the default from email
 DEFAULT_FROM_EMAIL = env('EMAIL_HOST_USER', default='noreply@teamschedule.local')
-ADMINS = [('TeamSchedule Admin', 'admin@teamschedule.local')]
+ADMINS = [('TeamSchedule Admin', env('EMAIL_HOST_USER', default='admin@teamschedule.local'))]
 
 # Logging Configuration
 LOGGING = {

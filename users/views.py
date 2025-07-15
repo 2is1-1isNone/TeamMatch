@@ -35,16 +35,18 @@ def register(request):
                 invite.team.members.add(user)
                 invite.accepted = True
                 invite.save()
-            return redirect('dashboard')
+            return redirect('home')
     else:
         form = SimpleRegistrationForm()
     return render(request, 'users/register.html', {'form': form})
 
 def home(request):
-    return render(request, 'users/home.html')
+    if request.user.is_authenticated:
+        return redirect('home')  # Redirect to user_home
+    return render(request, 'users/landing.html')
 
 @login_required
-def dashboard(request):
+def user_home(request):
     teams = request.user.teams.all()
     age_groups = Team._meta.get_field('age_group').choices
     tiers = Team._meta.get_field('tier').choices
@@ -68,7 +70,7 @@ def dashboard(request):
       # Get clubs the user administers
     admin_clubs = request.user.admin_clubs.all()
     
-    return render(request, 'users/dashboard.html', {
+    return render(request, 'users/home.html', {
         'user': request.user,
         'teams': teams,
         'age_groups': age_groups,
@@ -106,7 +108,7 @@ def team_profile(request, team_id=None):
         if new_club_name and association:
             club, created = Club.objects.get_or_create(name=new_club_name, association=association)
             if created:
-                club.admins.add(request.user)  # Make creator admin
+                club.add_admin(request.user)  # Make creator admin and member
         elif club_id:
             club = Club.objects.get(id=club_id)
         else:
@@ -128,7 +130,6 @@ def team_profile(request, team_id=None):
             team = Team.objects.create(
                 name=team_name,
                 club=club,
-                association=association,
                 age_group=age_group,
                 tier=tier,
                 season=season,
@@ -145,7 +146,7 @@ def team_profile(request, team_id=None):
                 TeamInvite.objects.create(team=team, email=email)
                 # Optionally send an email invite here
 
-        return redirect('dashboard')
+        return redirect('home')
 
     return render(request, 'users/team_profile.html', {
         'team': team,
@@ -163,7 +164,7 @@ def create_schedule(request, team_id):
     # Ensure the user is a member of the team
     if request.user not in team.members.all():
         messages.error(request, "You do not have permission to create a schedule for this team.")
-        return redirect('dashboard')
+        return redirect('home')
     
     if request.method == 'POST':
         form = ScheduleForm(request.POST)
@@ -172,7 +173,7 @@ def create_schedule(request, team_id):
             schedule.team = team
             schedule.save()
             messages.success(request, 'Schedule created successfully!')
-            return redirect('dashboard')
+            return redirect('home')
     else:
         form = ScheduleForm()
     return render(request, 'users/create_schedule.html', {'form': form, 'team': team})
@@ -185,7 +186,7 @@ from .models import Team
 def delete_team(request, team_id):
     if not request.user.is_superuser:
         messages.error(request, "Access denied. Superuser privileges required.")
-        return redirect('dashboard')
+        return redirect('home')
     
     team = get_object_or_404(Team, id=team_id)
     team.delete()
@@ -351,7 +352,7 @@ def save_team_dates(request, team_id):
 @login_required
 def edit_team(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    if request.user not in team.admins.all():
+    if not (request.user.is_superuser or request.user in team.admins.all()):
         messages.error(request, "You do not have permission to edit this team.")
         return redirect('team_profile', team_id=team.id)
     if request.method == 'POST':
@@ -359,7 +360,13 @@ def edit_team(request, team_id):
         if form.is_valid():
             form.save()
             messages.success(request, "Team updated successfully.")
-            return redirect('team_profile', team_id=team.id)
+            
+            # Check if we came from control plane
+            return_tab = request.GET.get('return_tab')
+            if return_tab == 'teams':
+                return redirect('control_plane' + '?return_tab=teams')
+            else:
+                return redirect('team_profile', team_id=team.id)
     else:
         form = TeamForm(instance=team)
     return render(request, 'users/edit_team.html', {'form': form, 'team': team})
@@ -387,8 +394,9 @@ def create_club(request):
         form = ClubForm(request.POST)
         if form.is_valid():
             club = form.save()
-            club.admins.add(request.user)  # Make creator admin
-            return redirect('dashboard')
+            club.add_admin(request.user)  # Make creator admin and member
+            messages.success(request, f"Club '{club.name}' created successfully.")
+            return redirect('control_plane')
     else:
         form = ClubForm()
     return render(request, 'users/create_club.html', {'form': form})
@@ -400,7 +408,8 @@ def create_association(request):
         if form.is_valid():
             association = form.save()
             association.admins.add(request.user)  # Make creator admin
-            return redirect('dashboard')
+            messages.success(request, f"Association '{association.name}' created successfully.")
+            return redirect('control_plane')
     else:
         form = AssociationForm()
     return render(request, 'users/create_association.html', {'form': form})
@@ -409,7 +418,7 @@ def create_association(request):
 def control_plane(request):
     if not request.user.is_superuser:
         messages.error(request, "Access denied. Superuser privileges required.")
-        return redirect('dashboard')
+        return redirect('home')
 
     users = User.objects.all().prefetch_related(
         'admin_teams',
@@ -460,7 +469,7 @@ def make_club_admin(request):
         club_id = request.POST.get('club_id')
         user = User.objects.get(id=user_id)
         club = Club.objects.get(id=club_id)
-        club.admins.add(user)
+        club.add_admin(user)  # Make admin and member
         messages.success(request, f"{user} is now a club admin for {club.name}.")
     return redirect('control_plane')
 
@@ -480,7 +489,7 @@ def make_association_admin(request):
 def edit_user(request, user_id):
     if not request.user.is_superuser:
         messages.error(request, "Access denied. Superuser privileges required.")
-        return redirect('dashboard')
+        return redirect('home')
     
     user = get_object_or_404(User, id=user_id)
     
@@ -509,12 +518,92 @@ def delete_user(request, user_id):
 
 @login_required
 def team_page(request, team_id):
-    """Display the public team page with basic info"""
+    """Display the team page with calendar functionality"""
     team = get_object_or_404(Team, id=team_id)
+    
+    # Get the division scheduling state for this team's division
+    try:
+        division_state = DivisionSchedulingState.objects.get(
+            age_group=team.age_group,
+            tier=team.tier,
+            season=team.season,
+            association=team.club.association
+        )
+        availability_deadline = division_state.availability_deadline
+        # Convert to Pacific Time for display
+        availability_deadline_local = timezone.localtime(availability_deadline) if availability_deadline else None
+    except DivisionSchedulingState.DoesNotExist:
+        availability_deadline_local = None
+    
+    # Get existing dates
+    team_dates = TeamDate.objects.filter(team=team)
+    team_dates_json = [
+        {
+            'title': 'Home Game' if date.is_home else 'Away Game',
+            'start': date.date.strftime('%Y-%m-%d'),
+            'allDay': True,
+            'color': '#0d6efd' if date.is_home else '#ffb366',
+            'allow_doubleheader': date.allow_doubleheader
+        } for date in team_dates
+    ]
+    
+    # Calculate division requirements and availability
+    division_teams = Team.objects.filter(age_group=team.age_group, tier=team.tier)
+    total_teams = division_teams.count()
+    required_series = total_teams - 1  # Each team needs (N-1) home and (N-1) away series
+    
+    # Helper function to count weekend series from dates
+    def count_weekend_series(dates):
+        """Count actual weekend series (pairs of consecutive dates like Saturday-Sunday)"""
+        if len(dates) < 2:
+            return 0
+        
+        sorted_dates = sorted(dates)
+        series_count = 0
+        i = 0
+        
+        while i < len(sorted_dates) - 1:
+            # Check if current date and next date are consecutive (1 day apart)
+            if (sorted_dates[i + 1] - sorted_dates[i]).days == 1:
+                series_count += 1
+                i += 2  # Skip the next date since it's part of this series
+            else:
+                i += 1  # Move to next date
+        
+        return series_count
+    
+    # Get home and away dates
+    home_dates = [td.date for td in team_dates if td.is_home]
+    away_dates = [td.date for td in team_dates if not td.is_home]
+    
+    # Count available weekend series
+    available_home_series = count_weekend_series(home_dates)
+    available_away_series = count_weekend_series(away_dates)
+    
+    # Calculate shortfalls - only show notifications if needed
+    home_series_needed = max(0, required_series - available_home_series)
+    away_series_needed = max(0, required_series - available_away_series)
+    
+    # Generate availability notifications
+    availability_notifications = []
+    if home_series_needed > 0:
+        availability_notifications.append(f"Your team needs {home_series_needed} more home game weekend availability dates")
+    if away_series_needed > 0:
+        availability_notifications.append(f"Your team needs {away_series_needed} more away game weekend availability dates")
+    
     context = {
         'team': team,
         'members': team.members.all(),
-        'admins': team.admins.all()
+        'admins': team.admins.all(),
+        'team_dates_json': json.dumps(team_dates_json),
+        'required_series': required_series,
+        'available_home_series': available_home_series,
+        'available_away_series': available_away_series,
+        'home_series_needed': home_series_needed,
+        'away_series_needed': away_series_needed,
+        'total_teams': total_teams,
+        'availability_notifications': availability_notifications,
+        'availability_deadline': availability_deadline_local
     }
     return render(request, 'users/team_page.html', context)
 
@@ -523,17 +612,23 @@ def edit_club(request, club_id):
     """Edit club details"""
     club = get_object_or_404(Club, id=club_id)
     
-    # Check if user has permission
-    if request.user not in club.admins.all():
+    # Check if user has permission (superuser or club admin)
+    if not (request.user.is_superuser or request.user in club.admins.all()):
         messages.error(request, "You don't have permission to edit this club.")
-        return redirect('dashboard')
+        return redirect('home')
     
     if request.method == 'POST':
         form = ClubForm(request.POST, instance=club)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Club updated successfully.')
-            return redirect('dashboard')
+            messages.success(request, f'Club "{club.name}" updated successfully.')
+            
+            # Check if we came from control plane
+            return_tab = request.GET.get('return_tab')
+            if return_tab == 'clubs':
+                return redirect('control_plane' + '?return_tab=clubs')
+            else:
+                return redirect('control_plane')
     else:
         form = ClubForm(instance=club)
     
@@ -550,7 +645,7 @@ def delete_club(request, club_id):
     # Check if user has permission or is a superuser
     if not request.user.is_superuser and request.user not in club.admins.all():
         messages.error(request, "You don't have permission to delete this club.")
-        return redirect('dashboard')
+        return redirect('home')
 
     if request.method == 'POST':
         club_name = club.name
@@ -565,17 +660,23 @@ def edit_association(request, association_id):
     """Edit an association's details"""
     association = get_object_or_404(Association, id=association_id)
     
-    # Check if user has permission
-    if request.user not in association.admins.all():
+    # Check if user has permission (superuser or association admin)
+    if not (request.user.is_superuser or request.user in association.admins.all()):
         messages.error(request, "You don't have permission to edit this association.")
-        return redirect('dashboard')
+        return redirect('home')
     
     if request.method == 'POST':
         form = AssociationForm(request.POST, instance=association)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Association updated successfully.')
-            return redirect('dashboard')
+            messages.success(request, f'Association "{association.name}" updated successfully.')
+            
+            # Check if we came from control plane
+            return_tab = request.GET.get('return_tab')
+            if return_tab == 'associations':
+                return redirect('control_plane' + '?return_tab=associations')
+            else:
+                return redirect('home')
     else:
         form = AssociationForm(instance=association)
     
@@ -592,13 +693,13 @@ def delete_association(request, association_id):
     # Check if user has permission
     if request.user not in association.admins.all():
         messages.error(request, "You don't have permission to delete this association.")
-        return redirect('dashboard')
+        return redirect('home')
     
     if request.method == 'POST':
         association_name = association.name
         association.delete()
         messages.success(request, f'Association "{association_name}" has been deleted.')
-        return redirect('dashboard')
+        return redirect('home')
     
     return render(request, 'users/delete_association.html', {'association': association})
 
@@ -613,12 +714,12 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
         association = Association.objects.get(id=association_id)
     except Association.DoesNotExist:
         messages.error(request, "Association not found")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Check if user is an association admin
     if request.user not in association.admins.all():
         messages.error(request, "You must be an association admin to access the division scheduler")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Get or create the division scheduling state
     from users.models import DivisionSchedulingState
@@ -701,7 +802,7 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
     
     if not teams.exists():
         messages.error(request, f"No teams found for {age_group} {tier} {season} division")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Initialize scheduler but don't generate schedule automatically when page is loaded
     scheduler = DivisionScheduler(age_group, tier, season, association)
@@ -841,7 +942,6 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
 
 @login_required
 @require_http_methods(["POST"])
-@csrf_exempt
 def generate_schedule_service(request, age_group, tier, season, association_id):
     from users.models import GeneratedSchedule, ScheduleMatch
     
@@ -991,27 +1091,25 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
 
 @login_required
 def division_calendar(request, age_group, tier, season, association_id):
-    # Get the association and validate access
+    # Get the association
     try:
         association = Association.objects.get(id=association_id)
     except Association.DoesNotExist:
         messages.error(request, "Association not found")
-        return redirect('dashboard')
+        return redirect('home')
     
-    # Check if user is an association admin
-    if request.user not in association.admins.all():
-        messages.error(request, "You must be an association admin to access the division calendar")
-        return redirect('dashboard')
-      # Get teams in this specific division
+    # Get teams in this specific division
     teams = Team.objects.filter(
         age_group=age_group, 
         tier=tier, 
         season=season,
-        club__association=association    )
+        club__association=association
+    )
     if not teams.exists():
         messages.error(request, f"No teams found for {age_group} {tier} {season} division")
-        return redirect('dashboard')
-      # Load existing generated schedule instead of regenerating
+        return redirect('home')
+    
+    # Load existing generated schedule
     from users.models import GeneratedSchedule, ScheduleMatch
     
     existing_schedule = GeneratedSchedule.objects.filter(
@@ -1023,7 +1121,10 @@ def division_calendar(request, age_group, tier, season, association_id):
     ).first()
     
     schedule = []
+    has_generated_calendar = False
+    
     if existing_schedule:
+        has_generated_calendar = True
         # Load scheduled matches from database
         scheduled_matches = ScheduleMatch.objects.filter(
             generated_schedule=existing_schedule,
@@ -1076,6 +1177,7 @@ def division_calendar(request, age_group, tier, season, association_id):
             event['end'] = date_format(end_date, 'Y-m-d')
             
         events.append(event)
+    
     events_json = json.dumps(events)
     return render(request, 'users/division_calendar.html', {
         'schedule': schedule,
@@ -1083,7 +1185,9 @@ def division_calendar(request, age_group, tier, season, association_id):
         'age_group': age_group,
         'tier': tier,
         'season': season,
-        'events_json': events_json
+        'events_json': events_json,
+        'has_generated_calendar': has_generated_calendar,
+        'division_name': f"{age_group} {tier}",
     })
 
 @login_required
@@ -1093,12 +1197,12 @@ def clubs_list(request, association_id):
         association = Association.objects.get(id=association_id)
     except Association.DoesNotExist:
         messages.error(request, "Association not found")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Check if user is an association admin
     if request.user not in association.admins.all():
         messages.error(request, "You must be an association admin to view clubs")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Get all clubs in this association
     clubs = Club.objects.filter(association=association).order_by('name')
@@ -1126,11 +1230,11 @@ def association_divisions(request, association_id):
         association = Association.objects.get(id=association_id)
     except Association.DoesNotExist:
         messages.error(request, "Association not found")
-        return redirect('dashboard')
+        return redirect('home')
       # Check if user is an association admin
     if request.user not in association.admins.all():
         messages.error(request, "You must be an association admin to access this page")
-        return redirect('dashboard')
+        return redirect('home')
     
     # Handle division settings updates
     if request.method == 'POST':
@@ -1622,7 +1726,7 @@ def update_system_settings(request):
     """
     if not request.user.is_superuser:
         messages.error(request, "Access denied. Superuser privileges required.")
-        return redirect('dashboard')
+        return redirect('home')
     
     try:
         from users.models import SystemSettings
@@ -1658,3 +1762,182 @@ def update_system_settings(request):
         messages.error(request, f"Failed to update system settings: {str(e)}")
     
     return redirect('control_plane')
+
+@login_required
+def division_page(request, age_group, tier, season, association_id):
+    """Display a division page with Teams, Calendar, and Logs options"""
+    association = get_object_or_404(Association, id=association_id)
+    
+    # Get teams in this division
+    teams = Team.objects.filter(
+        age_group=age_group,
+        tier=tier,
+        season=season,
+        club__association=association
+    )
+    
+    context = {
+        'age_group': age_group,
+        'tier': tier,
+        'season': season,
+        'association': association,
+        'teams': teams,
+        'division_name': f"{age_group} {tier}",
+    }
+    return render(request, 'users/division_page.html', context)
+
+@login_required
+def division_teams(request, age_group, tier, season, association_id):
+    """Display all teams in a specific division"""
+    association = get_object_or_404(Association, id=association_id)
+    
+    # Get teams in this division
+    teams = Team.objects.filter(
+        age_group=age_group,
+        tier=tier,
+        season=season,
+        club__association=association
+    ).select_related('club').prefetch_related('admins', 'members')
+    
+    context = {
+        'age_group': age_group,
+        'tier': tier,
+        'season': season,
+        'association': association,
+        'teams': teams,
+        'division_name': f"{age_group} {tier}",
+    }
+    return render(request, 'users/division_teams.html', context)
+
+@staff_member_required
+def create_user(request):
+    """Create a new user - only accessible by superusers"""
+    if not request.user.is_superuser:
+        messages.error(request, "Access denied. Superuser privileges required.")
+        return redirect('home')
+    
+    if request.method == 'POST':
+        form = SimpleRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"User {user.email} created successfully.")
+            return redirect('control_plane')
+    else:
+        form = SimpleRegistrationForm()
+    
+    return render(request, 'users/create_user.html', {'form': form})
+
+@login_required
+def create_team(request):
+    """Create a new team with redesigned form flow"""
+    associations = Association.objects.all()
+    clubs = Club.objects.all()
+    age_groups = Team._meta.get_field('age_group').choices
+    tiers = Team._meta.get_field('tier').choices
+    
+    if request.method == 'POST':
+        team_name = request.POST.get('team_name')
+        age_group = request.POST.get('age_group')
+        tier = request.POST.get('tier')
+        season = request.POST.get('season')
+        description = request.POST.get('description')
+        location = request.POST.get('location')
+        ready_for_scheduling = bool(request.POST.get('ready_for_scheduling'))
+        
+        # Handle club selection/creation
+        club_choice = request.POST.get('club_choice')  # 'existing' or 'new'
+        
+        if club_choice == 'existing':
+            club_id = request.POST.get('existing_club')
+            if club_id:
+                club = Club.objects.get(id=club_id)
+            else:
+                messages.error(request, 'Please select an existing club.')
+                return render(request, 'users/create_team.html', {
+                    'associations': associations,
+                    'clubs': clubs,
+                    'age_groups': age_groups,
+                    'tiers': tiers,
+                })
+        else:  # new club
+            new_club_name = request.POST.get('new_club_name')
+            new_club_location = request.POST.get('new_club_location', '')
+            association_choice = request.POST.get('association_choice')  # 'existing' or 'new'
+            
+            if not new_club_name:
+                messages.error(request, 'Please enter a club name.')
+                return render(request, 'users/create_team.html', {
+                    'associations': associations,
+                    'clubs': clubs,
+                    'age_groups': age_groups,
+                    'tiers': tiers,
+                })
+            
+            if association_choice == 'existing':
+                association_id = request.POST.get('existing_association')
+                if association_id:
+                    association = Association.objects.get(id=association_id)
+                else:
+                    messages.error(request, 'Please select an existing association.')
+                    return render(request, 'users/create_team.html', {
+                        'associations': associations,
+                        'clubs': clubs,
+                        'age_groups': age_groups,
+                        'tiers': tiers,
+                    })
+            else:  # new association
+                new_association_name = request.POST.get('new_association_name')
+                if not new_association_name:
+                    messages.error(request, 'Please enter an association name.')
+                    return render(request, 'users/create_team.html', {
+                        'associations': associations,
+                        'clubs': clubs,
+                        'age_groups': age_groups,
+                        'tiers': tiers,
+                    })
+                
+                # Create new association
+                association, created = Association.objects.get_or_create(name=new_association_name)
+                if created:
+                    association.admins.add(request.user)
+            
+            # Create new club
+            club, created = Club.objects.get_or_create(
+                name=new_club_name, 
+                association=association,
+                defaults={'location': new_club_location}
+            )
+            if created:
+                club.add_admin(request.user)  # Make creator admin and member
+        
+        # Create the team
+        team = Team.objects.create(
+            name=team_name,
+            club=club,
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            description=description,
+            location=location,
+            ready_for_scheduling=ready_for_scheduling,
+        )
+        team.members.add(request.user)
+        team.admins.add(request.user)
+        
+        # Also add user to club members if not already
+        club.members.add(request.user)
+        
+        # Handle invites
+        invite_emails = request.POST.get('invite_emails', '')
+        for email in [e.strip().lower() for e in invite_emails.split(',') if e.strip()]:
+            TeamInvite.objects.create(team=team, email=email)
+        
+        messages.success(request, f'Team "{team_name}" created successfully!')
+        return redirect('control_plane')
+    
+    return render(request, 'users/create_team.html', {
+        'associations': associations,
+        'clubs': clubs,
+        'age_groups': age_groups,
+        'tiers': tiers,
+    })

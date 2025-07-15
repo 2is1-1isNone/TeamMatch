@@ -1,13 +1,47 @@
 {% extends "users/base.html" %}
-{% block title %}Division Calendar{% endblock %}
+{% block title %}{{ division_name }} Division Calendar{% endblock %}
 {% block content %}
-<h2>{{ association.name }} Division Calendar - {{age_group}} {{tier}} ({{season}})</h2>
-<div class="mb-3">
-    <span style="color: #87CEFA; font-weight: bold;">Home</span>
-    <span style="margin: 0 1em;"></span>
-    <span style="color: #ffb366; font-weight: bold;">Away</span>
+<!-- Breadcrumb Navigation -->
+<div class="container-fluid mb-3" style="background-color: white; border-bottom: 1px solid #dee2e6; padding: 15px 0;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{% url 'home' %}" class="text-decoration-none">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'division_page' age_group tier season association.id %}" class="text-decoration-none">
+                    <i class="fas fa-trophy"></i> {{ division_name }} Division
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <i class="fas fa-calendar-alt"></i> Calendar
+            </li>
+        </ol>
+    </nav>
 </div>
-<div id="divisionCalendar"></div>
+
+<div class="container-fluid">
+    <h2>{{ association.name }} Division Calendar - {{ age_group }} {{ tier }} ({{ season }})</h2>
+    
+    {% if has_generated_calendar %}
+        <div class="mb-3">
+            <span style="color: #87CEFA; font-weight: bold;">Home</span>
+            <span style="margin: 0 1em;"></span>
+            <span style="color: #ffb366; font-weight: bold;">Away</span>
+        </div>
+        <div id="divisionCalendar"></div>
+    {% else %}
+        <div class="alert alert-info mt-4">
+            <h4><i class="fas fa-calendar-times"></i> Calendar Not Available</h4>
+            <p>The Division Calendar has not yet been generated for the {{ division_name }} division in the {{ season }} season.</p>
+            <p>Please contact your association administrator to generate the schedule.</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if has_generated_calendar %}
 
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -53,4 +87,5 @@ document.addEventListener('DOMContentLoaded', function() {
     calendar.render();
 });
 </script>
+{% endif %}
 {% endblock %}

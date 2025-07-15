@@ -1,0 +1,193 @@
+{% load django_bootstrap5 %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}TeamSchedule{% endblock %}</title>
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sidebar {
+            background-color: #f8f9fa;
+            min-height: calc(100vh - 56px);
+            padding: 20px;
+            border-right: 1px solid #dee2e6;
+        }
+        .nav-section {
+            margin-bottom: 10px;
+        }
+        .nav-section-header {
+            cursor: pointer;
+            padding: 8px 12px;
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-section-header:hover {
+            background-color: #dee2e6;
+        }
+        .nav-section-content {
+            display: none;
+            padding-left: 15px;
+        }
+        .nav-section-content.active {
+            display: block;
+        }
+        .nav-item-link {
+            display: block;
+            padding: 5px 10px;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+        .nav-item-link:hover {
+            background-color: #e9ecef;
+            color: #495057;
+            text-decoration: none;
+        }
+        .nav-arrow {
+            transition: transform 0.2s;
+        }
+        .nav-arrow.expanded {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'home' %}">TeamSchedule</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                {% if user.is_authenticated %}
+                    <li class="nav-item me-3">
+                        <a href="{% url 'user_profile' %}" class="navbar-text text-decoration-none">
+                            <i class="fas fa-user-circle me-1"></i>{{ user.username }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link nav-link" style="display:inline; padding:0;">Logout</button>
+                        </form>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'login' %}">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'register' %}">Register</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+{% if user.is_authenticated %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Left Sidebar Navigation -->
+        <div class="col-md-3 col-lg-2 sidebar">
+            {% if nav_teams %}
+            <div class="nav-section">
+                <div class="nav-section-header" onclick="toggleSection('teams')">
+                    <span>Teams</span>
+                    <i class="fas fa-chevron-right nav-arrow" id="teams-arrow"></i>
+                </div>
+                <div class="nav-section-content" id="teams-content">
+                    {% for team in nav_teams %}
+                        <a href="{% url 'team_page' team.id %}" class="nav-item-link">{{ team.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if nav_divisions %}
+            <div class="nav-section">
+                <div class="nav-section-header" onclick="toggleSection('divisions')">
+                    <span>Divisions</span>
+                    <i class="fas fa-chevron-right nav-arrow" id="divisions-arrow"></i>
+                </div>
+                <div class="nav-section-content" id="divisions-content">
+                    {% for division in nav_divisions %}
+                        <a href="#" class="nav-item-link">{{ division.4 }} - {{ division.0 }} {{ division.1 }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if nav_clubs %}
+            <div class="nav-section">
+                <div class="nav-section-header" onclick="toggleSection('clubs')">
+                    <span>Clubs</span>
+                    <i class="fas fa-chevron-right nav-arrow" id="clubs-arrow"></i>
+                </div>
+                <div class="nav-section-content" id="clubs-content">
+                    {% for club in nav_clubs %}
+                        <a href="#" class="nav-item-link">{{ club.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if nav_associations %}
+            <div class="nav-section">
+                <div class="nav-section-header" onclick="toggleSection('associations')">
+                    <span>Associations</span>
+                    <i class="fas fa-chevron-right nav-arrow" id="associations-arrow"></i>
+                </div>
+                <div class="nav-section-content" id="associations-content">
+                    {% for association in nav_associations %}
+                        <a href="#" class="nav-item-link">{{ association.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 col-lg-10">
+            <div class="container mt-4">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+    <div class="container mt-5">
+        {% block content %}{% endblock %}
+    </div>
+{% endif %}
+
+<script>
+function toggleSection(sectionName) {
+    // Close all other sections
+    const allSections = ['teams', 'divisions', 'clubs', 'associations'];
+    allSections.forEach(section => {
+        if (section !== sectionName) {
+            const content = document.getElementById(section + '-content');
+            const arrow = document.getElementById(section + '-arrow');
+            if (content && arrow) {
+                content.classList.remove('active');
+                arrow.classList.remove('expanded');
+            }
+        }
+    });
+
+    // Toggle the clicked section
+    const content = document.getElementById(sectionName + '-content');
+    const arrow = document.getElementById(sectionName + '-arrow');
+    
+    if (content && arrow) {
+        content.classList.toggle('active');
+        arrow.classList.toggle('expanded');
+    }
+}
+</script>
+</body>
+</html>

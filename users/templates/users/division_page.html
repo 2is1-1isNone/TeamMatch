@@ -1,0 +1,45 @@
+{% extends "users/base.html" %}
+{% block title %}{{ division_name }} Division{% endblock %}
+{% block content %}
+<!-- Breadcrumb Navigation -->
+<div class="container-fluid mb-3" style="background-color: white; border-bottom: 1px solid #dee2e6; padding: 15px 0;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{% url 'home' %}" class="text-decoration-none">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <i class="fas fa-trophy"></i> {{ division_name }} Division
+            </li>
+        </ol>
+    </nav>
+</div>
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title">{{ division_name }} Division</h2>
+                    <p class="card-text">{{ association.name }} - {{ season }} Season</p>
+                    <p class="text-muted">{{ teams.count }} team{{ teams.count|pluralize }} in this division</p>
+                    
+                    <div class="d-grid gap-2 d-md-block mt-4">
+                        <a href="{% url 'division_teams' age_group tier season association.id %}" class="btn btn-primary btn-lg me-2">
+                            <i class="fas fa-users"></i> Teams
+                        </a>
+                        <a href="{% url 'division_calendar' age_group tier season association.id %}" class="btn btn-secondary btn-lg me-2">
+                            <i class="fas fa-calendar-alt"></i> Calendar
+                        </a>
+                        <a href="#" class="btn btn-info btn-lg">
+                            <i class="fas fa-file-alt"></i> Logs
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

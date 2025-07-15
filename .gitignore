@@ -35,9 +35,7 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
-# Obsolete files (Celery was replaced with background scheduler)
-celery.py
-tasks.py
+# Development/cleanup files
 *.KILL
 *_backup.py
 *_clean.py
@@ -48,6 +46,8 @@ simple_check.py
 CLEANUP_CANDIDATES.md
 TeamSchedule Notes.txt
 ProductRequirements.txt
+git_commit_commands.txt
+replace_*.py
 
 # Test data and testing
 TESTING/
@@ -73,3 +73,9 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+
+# Security checklist (remove after completing)
+SECURITY_CHECKLIST.md
+
+# Local development files (moved here to keep locally but exclude from repo)
+_local_dev/

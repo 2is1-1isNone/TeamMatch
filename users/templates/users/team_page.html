@@ -1,20 +1,64 @@
-{% extends "users/base.html" %}
-{% block title %}{{ team.name }}{% endblock %}
-
-{% block content %}
-<div class="container mt-4">
-    <h1>{{ team.name }}</h1>
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Team Information</h5>
-            <p><strong>Club:</strong> {{ team.club.name }}</p>
-            <p><strong>Age Group:</strong> {{ team.age_group }}</p>
-            <p><strong>Tier:</strong> {{ team.tier }}</p>
-            <p><strong>Location:</strong> {{ team.location }}</p>
-            {% if team.description %}
-                <p><strong>Description:</strong> {{ team.description }}</p>
-            {% endif %}
+{% load django_bootstrap5 %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ team.name }} - TeamSchedule</title>
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        .breadcrumb-container {
+            background-color: white;
+            border-bottom: 1px solid #dee2e6;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .content-container {
+            padding: 0 20px 20px 20px;
+        }
+        .link-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Breadcrumb Navigation -->
+    <div class="breadcrumb-container">
+        <div class="container-fluid">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'home' %}" class="text-decoration-none">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">
+                        <i class="fas fa-users"></i> {{ team.name }}
+                    </li>
+                </ol>
+            </nav>
         </div>
     </div>
-</div>
-{% endblock %}
+
+    <!-- Content -->
+    <div class="content-container">
+        <div class="link-container">
+            <h2>{{ team.name }}</h2>
+            <div class="mt-4">
+                <a href="{% url 'team_calendar' team.id %}" class="btn btn-primary btn-lg me-3">Calendar</a>
+                <a href="{% url 'team_profile' team.id %}" class="btn btn-secondary btn-lg">Profile</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

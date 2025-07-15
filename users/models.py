@@ -23,8 +23,15 @@ class Association(models.Model):
 class Club(models.Model):
     name = models.CharField(max_length=100)  # e.g., "Seattle Jr. Kraken"
     association = models.ForeignKey(Association, on_delete=models.CASCADE, related_name='clubs')
+    location = models.CharField(max_length=100, blank=True, help_text="Club's primary location (e.g., city, rink, or address).")
     created_at = models.DateTimeField(auto_now_add=True)
     admins = models.ManyToManyField('User', related_name='admin_clubs', blank=True)
+    members = models.ManyToManyField('User', related_name='clubs', blank=True)
+
+    def add_admin(self, user):
+        """Add a user as admin and automatically as member"""
+        self.admins.add(user)
+        self.members.add(user)
 
     def __str__(self):
         return self.name

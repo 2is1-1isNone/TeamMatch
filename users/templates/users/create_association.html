@@ -1,0 +1,51 @@
+{% extends "users/base.html" %}
+{% load django_bootstrap5 %}
+{% block title %}Create Association{% endblock %}
+{% block content %}
+<!-- Breadcrumb Navigation -->
+<div class="container-fluid mb-3" style="background-color: white; border-bottom: 1px solid #dee2e6; padding: 15px 0;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{% url 'home' %}" class="text-decoration-none">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'control_plane' %}" class="text-decoration-none">
+                    <i class="fas fa-cogs"></i> Control Plane
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <i class="fas fa-sitemap"></i> Create Association
+            </li>
+        </ol>
+    </nav>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-sitemap"></i> Create New Association</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% bootstrap_form form %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'control_plane' %}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sitemap"></i> Create Association
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
