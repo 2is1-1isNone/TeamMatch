@@ -45,4 +45,5 @@ urlpatterns = [
     path('division-calendar/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.division_calendar, name='division_calendar'),
     path('division/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/', views.division_page, name='division_page'),
     path('division/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/teams/', views.division_teams, name='division_teams'),
+    path('division/<str:age_group>/<str:tier>/<str:season>/<int:association_id>/logs/', views.division_logs, name='division_logs'),
 ]

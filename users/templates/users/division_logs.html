@@ -1,0 +1,167 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>{{ division_name }} Division Logs</h2>
+            <p class="text-muted">{{ association.name }} - {{ season }}</p>
+        </div>
+        <div>
+            <a href="{% url 'division_page' age_group tier season association.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Division
+            </a>
+        </div>
+    </div>
+
+    <!-- Team Readiness Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-check"></i> Current Team Readiness Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for team_info in teams_with_readiness %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-secondary">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title">{{ team_info.team.name }}</h6>
+                                    <small class="text-muted">{{ team_info.team.club.name }}</small>
+                                    
+                                    <div class="mt-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Home dates:</span>
+                                            <span class="{% if team_info.home_ready %}text-success{% else %}text-warning{% endif %}">
+                                                {{ team_info.home_dates_count }}/10
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Away dates:</span>
+                                            <span class="{% if team_info.away_ready %}text-success{% else %}text-warning{% endif %}">
+                                                {{ team_info.away_dates_count }}/10
+                                            </span>
+                                        </div>
+                                        <div class="mt-1">
+                                            {% if team_info.home_ready and team_info.away_ready %}
+                                                <small class="text-success"><i class="fas fa-check-circle"></i> Ready for scheduling</small>
+                                            {% else %}
+                                                <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Needs more dates</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> No teams found in this division.
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Logs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list-ul"></i> Division Activity Log</h5>
+                    <small class="text-muted">Last 100 entries</small>
+                </div>
+                <div class="card-body">
+                    {% if logs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Message</th>
+                                    <th>User</th>
+                                    <th>Team</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr class="{% if log.log_type == 'team_readiness' %}table-light{% elif log.log_type == 'schedule_generation' %}table-info{% elif log.log_type == 'user_login' %}table-secondary{% else %}table-warning{% endif %}">
+                                    <td>
+                                        <small>
+                                            {{ log.timestamp|date:"M d, Y" }}<br>
+                                            {{ log.timestamp|time:"g:i A" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if log.log_type == 'team_readiness' %}bg-success{% elif log.log_type == 'schedule_generation' %}bg-primary{% elif log.log_type == 'user_login' %}bg-secondary{% elif 'team_' in log.log_type %}bg-warning{% else %}bg-info{% endif %}">
+                                            {{ log.get_log_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.message }}</td>
+                                    <td>
+                                        {% if log.user %}
+                                            {{ log.user.get_full_name|default:log.user.username }}
+                                        {% else %}
+                                            <span class="text-muted">System</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.team %}
+                                            {{ log.team.name }}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No activity logs found for this division yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.card-body .card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card-body .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

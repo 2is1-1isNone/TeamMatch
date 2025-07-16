@@ -342,3 +342,143 @@ class SystemSettings(models.Model):
         settings, created = cls.objects.get_or_create(pk=1)
         return settings
 
+class DivisionLog(models.Model):
+    """
+    Log entries for division activities and status updates
+    """
+    LOG_TYPES = [
+        ('team_readiness', 'Team Readiness Check'),
+        ('schedule_generation', 'Schedule Generation'),
+        ('user_login', 'User Login'),
+        ('team_added', 'Team Added'),
+        ('team_deleted', 'Team Deleted'),
+        ('team_modified', 'Team Modified'),
+        ('availability_updated', 'Team Availability Updated'),
+        ('deadline_set', 'Deadline Set'),
+        ('system_info', 'System Information'),
+    ]
+    
+    # Division identification
+    age_group = models.CharField(max_length=10)
+    tier = models.CharField(max_length=5)
+    season = models.CharField(max_length=20)
+    association = models.ForeignKey(Association, on_delete=models.CASCADE)
+    
+    # Log details
+    log_type = models.CharField(max_length=30, choices=LOG_TYPES)
+    message = models.TextField()
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    # Additional metadata
+    metadata = models.JSONField(default=dict, blank=True)  # Store additional context
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['age_group', 'tier', 'season', 'association']),
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['log_type']),
+        ]
+    
+    def __str__(self):
+        division_name = f"{self.age_group} {self.tier} ({self.season})"
+        return f"{division_name} - {self.get_log_type_display()}: {self.message[:50]}..."
+    
+    @classmethod
+    def log_team_readiness(cls, age_group, tier, season, association, team, home_games_needed, away_games_needed, user=None):
+        """Log team readiness status"""
+        if home_games_needed == 0 and away_games_needed == 0:
+            message = f"✅ {team.name} has sufficient dates (meets requirements)"
+        else:
+            needed_parts = []
+            if home_games_needed > 0:
+                needed_parts.append(f"{home_games_needed} more home games")
+            if away_games_needed > 0:
+                needed_parts.append(f"{away_games_needed} more away games")
+            message = f"⚠️ {team.name} needs {' and '.join(needed_parts)}"
+        
+        return cls.objects.create(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            log_type='team_readiness',
+            message=message,
+            user=user,
+            team=team,
+            metadata={
+                'home_games_needed': home_games_needed,
+                'away_games_needed': away_games_needed,
+            }
+        )
+    
+    @classmethod
+    def log_schedule_generation(cls, age_group, tier, season, association, status, user=None, details=None):
+        """Log schedule generation events"""
+        status_messages = {
+            'started': f"🔄 Schedule generation started for {age_group} {tier}",
+            'completed': f"✅ Schedule generation completed for {age_group} {tier}",
+            'failed': f"❌ Schedule generation failed for {age_group} {tier}",
+            'no_teams': f"⚠️ No teams found for {age_group} {tier}",
+        }
+        
+        message = status_messages.get(status, f"Schedule generation update: {status}")
+        if details:
+            message += f" - {details}"
+        
+        return cls.objects.create(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            log_type='schedule_generation',
+            message=message,
+            user=user,
+            metadata={'status': status, 'details': details}
+        )
+    
+    @classmethod
+    def log_user_login(cls, age_group, tier, season, association, user):
+        """Log user login to division"""
+        message = f"👤 {user.get_full_name() or user.username} accessed division"
+        
+        return cls.objects.create(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            log_type='user_login',
+            message=message,
+            user=user,
+        )
+    
+    @classmethod
+    def log_team_change(cls, age_group, tier, season, association, action, team, user, details=None):
+        """Log team additions, deletions, or modifications"""
+        action_icons = {
+            'added': '➕',
+            'deleted': '🗑️',
+            'modified': '✏️',
+        }
+        
+        icon = action_icons.get(action, '📝')
+        message = f"{icon} Team {team.name} was {action} by {user.get_full_name() or user.username}"
+        if details:
+            message += f" - {details}"
+        
+        log_type = f"team_{action}"
+        
+        return cls.objects.create(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            log_type=log_type,
+            message=message,
+            user=user,
+            team=team,
+            metadata={'action': action, 'details': details}
+        )
+

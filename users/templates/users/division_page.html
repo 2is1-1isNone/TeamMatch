@@ -33,9 +33,16 @@
                         <a href="{% url 'division_calendar' age_group tier season association.id %}" class="btn btn-secondary btn-lg me-2">
                             <i class="fas fa-calendar-alt"></i> Calendar
                         </a>
-                        <a href="#" class="btn btn-info btn-lg">
+                        <a href="{% url 'division_logs' age_group tier season association.id %}" class="btn btn-info btn-lg me-2">
                             <i class="fas fa-file-alt"></i> Logs
                         </a>
+                        
+                        <!-- Manage Schedule button - only show for association admins -->
+                        {% if user in association.admins.all %}
+                        <a href="{% url 'division_schedule' age_group tier season association.id %}" class="btn btn-warning btn-lg">
+                            <i class="fas fa-cogs"></i> Manage Schedule
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

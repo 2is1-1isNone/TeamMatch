@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods  # Add this line
 from django.utils import timezone  # Add timezone import
 import json  # Add json import
-from .models import User, Team, Club, Association, Schedule, TeamInvite, TeamDate, DivisionSchedulingState, ScheduleProposal
+from .models import User, Team, Club, Association, Schedule, TeamInvite, TeamDate, DivisionSchedulingState, ScheduleProposal, DivisionLog
 from .forms import (
     CustomUserCreationForm, TeamForm, ScheduleForm, 
     ClubForm, AssociationForm, SimpleRegistrationForm,
@@ -335,9 +335,12 @@ def save_team_dates(request, team_id):
      
     try:
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        action_description = ""
+        
         if is_home is None:
             # Delete the date
             TeamDate.objects.filter(team=team, date=date_obj).delete()
+            action_description = f"Removed availability for {date_str}"
         else:
             # Create or update the date, including allow_doubleheader
             obj, created = TeamDate.objects.update_or_create(
@@ -345,6 +348,31 @@ def save_team_dates(request, team_id):
                 date=date_obj,
                 defaults={'is_home': is_home, 'allow_doubleheader': allow_doubleheader}
             )
+            home_away = "home" if is_home else "away"
+            dh_text = " (allows doubleheader)" if allow_doubleheader else ""
+            if created:
+                action_description = f"Added {home_away} availability for {date_str}{dh_text}"
+            else:
+                action_description = f"Updated {home_away} availability for {date_str}{dh_text}"
+        
+        # Log availability update
+        DivisionLog.objects.create(
+            age_group=team.age_group,
+            tier=team.tier,
+            season=team.season,
+            association=team.club.association,
+            log_type='availability_updated',
+            message=f"📅 {team.name}: {action_description}",
+            user=request.user,
+            team=team,
+            metadata={
+                'date': date_str,
+                'is_home': is_home,
+                'allow_doubleheader': allow_doubleheader,
+                'action': 'deleted' if is_home is None else ('created' if created else 'updated')
+            }
+        )
+        
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -915,28 +943,24 @@ def generate_division_schedule(request, age_group, tier, season, association_id)
 @login_required
 @require_http_methods(["POST"])
 def generate_schedule_service(request, age_group, tier, season, association_id):
-    from users.models import GeneratedSchedule, ScheduleMatch
-    
-    print("=" * 80)
-    print("🚀 MANUAL SCHEDULE GENERATION TRIGGERED")
-    print("=" * 80)
-    print(f"📋 Age Group: {age_group}")
-    print(f"📋 Tier: {tier}")
-    print(f"📋 Season: {season}")
-    print(f"📋 Association ID: {association_id}")
-    print(f"👤 User: {request.user.username} (ID: {request.user.id})")
-    print(f"⏰ Timestamp: {timezone.now()}")
-    print(f"🔧 Request method: {request.method}")
-    print("=" * 80)
+    from users.models import GeneratedSchedule, ScheduleMatch, DivisionLog
     
     try:
         # Get the association and validate access
         try:
             association = Association.objects.get(id=association_id)
         except Association.DoesNotExist:
-            raise Exception("Association not found")        # Check if user is an association admin
+            raise Exception("Association not found")
+        
+        # Check if user is an association admin
         if request.user not in association.admins.all():
-            raise Exception("You must be an association admin to generate schedules")        # Delete any existing schedule and its matches - use a transaction for consistency
+            raise Exception("You must be an association admin to generate schedules")
+        
+        # Log schedule generation start
+        DivisionLog.log_schedule_generation(
+            age_group, tier, season, association,
+            'started', request.user
+        )        # Delete any existing schedule and its matches - use a transaction for consistency
         from django.db import transaction
         
         with transaction.atomic():
@@ -1037,14 +1061,26 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
             }
         )
         
-        if unscheduled_matches:            messages.warning(
+        if unscheduled_matches:
+            # Log partial success
+            DivisionLog.log_schedule_generation(
+                age_group, tier, season, association,
+                'completed', request.user,
+                details=f"{len(schedule)} matches scheduled, {len(unscheduled_matches)} unscheduled"
+            )
+            messages.warning(
                 request,
                 f"Schedule generated with {len(unscheduled_matches)} unscheduled matches that need resolution"
             )
         else:
+            # Log complete success
+            DivisionLog.log_schedule_generation(
+                age_group, tier, season, association,
+                'completed', request.user,
+                details=f"{len(schedule)} matches scheduled successfully"
+            )
             messages.success(request, "Schedule generated successfully!")
         
-        print("=== REDIRECTING TO DIVISION_SCHEDULE ===")
         # Redirect back to the division schedule page to load fresh data from database
         return redirect('division_schedule', 
                        age_group=age_group, 
@@ -1052,6 +1088,12 @@ def generate_schedule_service(request, age_group, tier, season, association_id):
                        season=season, 
                        association_id=association_id)                       
     except Exception as e:
+        # Log failure
+        DivisionLog.log_schedule_generation(
+            age_group, tier, season, association,
+            'failed', request.user,
+            details=str(e)
+        )
         error_message = str(e)
         print(f"ERROR in generate_schedule_service: {error_message}")
         messages.error(request, f"Error generating schedule: {error_message}")
@@ -1899,6 +1941,14 @@ def create_team(request):
         # Also add user to club members if not already
         club.members.add(request.user)
         
+        # Log team creation
+        from .models import DivisionLog
+        DivisionLog.log_team_change(
+            age_group, tier, season, club.association,
+            'added', team, request.user,
+            details=f"Club: {club.name}"
+        )
+        
         # Handle invites
         invite_emails = request.POST.get('invite_emails', '')
         for email in [e.strip().lower() for e in invite_emails.split(',') if e.strip()]:
@@ -1913,3 +1963,82 @@ def create_team(request):
         'age_groups': age_groups,
         'tiers': tiers,
     })
+
+@login_required
+def division_logs(request, age_group, tier, season, association_id):
+    """Display logs for a specific division"""
+    from .models import DivisionLog
+    
+    association = get_object_or_404(Association, id=association_id)
+    
+    # Get teams in this division for readiness check
+    teams = Team.objects.filter(
+        age_group=age_group,
+        tier=tier,
+        season=season,
+        club__association=association
+    ).select_related('club').prefetch_related('dates')
+    
+    # Log user access to division logs
+    DivisionLog.log_user_login(age_group, tier, season, association, request.user)
+    
+    # Perform team readiness check and log results
+    teams_with_readiness = []
+    for team in teams:
+        # Count available dates for home and away games
+        team_dates = team.dates.all()
+        home_dates_count = team_dates.filter(is_home=True).count()
+        away_dates_count = team_dates.filter(is_home=False).count()
+        
+        teams_with_readiness.append({
+            'team': team,
+            'home_dates_count': home_dates_count,
+            'away_dates_count': away_dates_count,
+            'home_ready': home_dates_count >= 10,
+            'away_ready': away_dates_count >= 10,
+        })
+    
+    perform_team_readiness_check(age_group, tier, season, association, teams, request.user)
+    
+    # Get all logs for this division
+    logs = DivisionLog.objects.filter(
+        age_group=age_group,
+        tier=tier,
+        season=season,
+        association=association
+    ).select_related('user', 'team').order_by('-timestamp')[:100]  # Last 100 logs
+    
+    context = {
+        'age_group': age_group,
+        'tier': tier,
+        'season': season,
+        'association': association,
+        'teams': teams,
+        'teams_with_readiness': teams_with_readiness,
+        'logs': logs,
+        'division_name': f"{age_group} {tier}",
+    }
+    return render(request, 'users/division_logs.html', context)
+
+def perform_team_readiness_check(age_group, tier, season, association, teams, user):
+    """Check and log team readiness for schedule generation"""
+    from .models import DivisionLog
+    
+    # Define minimum requirements (you can adjust these)
+    MIN_HOME_GAMES = 10
+    MIN_AWAY_GAMES = 10
+    
+    for team in teams:
+        # Count available dates for home and away games
+        team_dates = team.dates.all()
+        home_dates = team_dates.filter(is_home=True).count()
+        away_dates = team_dates.filter(is_home=False).count()
+        
+        home_games_needed = max(0, MIN_HOME_GAMES - home_dates)
+        away_games_needed = max(0, MIN_AWAY_GAMES - away_dates)
+        
+        # Log the readiness status
+        DivisionLog.log_team_readiness(
+            age_group, tier, season, association, team,
+            home_games_needed, away_games_needed, user
+        )

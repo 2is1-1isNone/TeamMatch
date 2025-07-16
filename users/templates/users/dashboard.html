@@ -10,7 +10,7 @@
                 </h6>
                 <ul class="nav flex-column mb-4">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'team_profile_create' %}">
+                        <a class="nav-link" href="{% url 'create_team' %}">
                             <i class="fas fa-plus-circle"></i> Create Team
                         </a>
                     </li>
@@ -122,7 +122,7 @@
             </div>
             {% else %}
             <div class="alert alert-info">
-                You are not a member of any teams. <a href="{% url 'team_profile_create' %}">Create a team</a> or browse <a href="{% url 'all_teams' %}">all teams</a>.
+                You are not a member of any teams. <a href="{% url 'create_team' %}">Create a team</a> or browse <a href="{% url 'all_teams' %}">all teams</a>.
             </div>
             {% endif %}
         </main>
