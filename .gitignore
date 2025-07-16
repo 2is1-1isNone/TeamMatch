@@ -56,6 +56,12 @@ setup_*.py
 *_test.py
 migrate_*.py
 
+# Review and preparation documents
+*_REVIEW*.md
+*_CHECKLIST*.md
+REVIEW_*.md
+CHECKLIST_*.md
+
 # Test data and testing
 TESTING/
 users/testdata/
