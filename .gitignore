@@ -87,8 +87,5 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Security checklist (remove after completing)
-SECURITY_CHECKLIST.md
-
 # Local development files (moved here to keep locally but exclude from repo)
 _local_dev/
