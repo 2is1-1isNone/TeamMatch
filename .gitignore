@@ -70,6 +70,8 @@ testdata/
 users/sixteenAAAtest.py
 users/sixteenAADELETE.py
 users/fourteenB_*
+users/sixteen*.py
+users/fourteen*.py
 test_*.py
 
 # Static files (if collected)
