@@ -65,6 +65,8 @@ CHECKLIST_*.md
 # Test data and testing
 TESTING/
 users/testdata/
+testdata/
+**/testdata/
 users/sixteenAAAtest.py
 users/sixteenAADELETE.py
 users/fourteenB_*
