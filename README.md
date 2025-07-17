@@ -2,6 +2,8 @@
 
 A Django-based web application for managing sports team schedules, divisions, clubs, and associations. This application helps sports organizations coordinate team scheduling, manage member relationships, and track division calendars.
 
+98% vibe coded over 6 weeks with VSCode and CoPilot!
+
 ## Features
 
 - **Team Management**: Create and manage teams with member administration
