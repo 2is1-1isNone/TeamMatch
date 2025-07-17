@@ -21,6 +21,7 @@ A Django-based web application for managing sports team schedules, divisions, cl
 - **Frontend**: Bootstrap 5, JavaScript
 - **Authentication**: Custom email-based authentication
 - **Environment Management**: django-environ
+- **Deployment**: Configured for Render (free tier available)
 
 ## Installation
 
@@ -175,7 +176,46 @@ TeamSchedule/
 
 ## Production Deployment
 
-### Security Checklist
+This application is configured for easy deployment on [Render](https://render.com/), a modern cloud platform with free tier options.
+
+### Quick Deploy to Render
+
+1. **Fork this repository** to your GitHub account
+
+2. **Create a Render account** at [render.com](https://render.com/) and connect your GitHub
+
+3. **Create a PostgreSQL database**:
+   - Go to your Render dashboard
+   - Click "New +" → "PostgreSQL"
+   - Name: `teamschedule-db`
+   - Choose the free plan
+   - Click "Create Database"
+
+4. **Deploy the web service**:
+   - Click "New +" → "Web Service"
+   - Connect your forked repository
+   - Configure:
+     - **Build Command**: `./build.sh`
+     - **Start Command**: `gunicorn teamschedule.wsgi:application`
+     - **Environment**: Python 3
+   - Add environment variables:
+     - `SECRET_KEY`: Generate a secure random string
+     - `DEBUG`: `False`
+     - `DATABASE_URL`: (Will be auto-filled when you connect the database)
+     - `ALLOWED_HOSTS`: `your-app-name.onrender.com`
+   - Choose the free plan
+   - Click "Create Web Service"
+
+5. **Connect the database**:
+   - In your web service settings, go to "Environment"
+   - Click "Add from Database" and select your PostgreSQL database
+   - This will automatically add the `DATABASE_URL` environment variable
+
+### Manual Deployment
+
+If you prefer to deploy manually or on another platform:
+
+#### Security Checklist
 
 Before deploying to production:
 
@@ -187,16 +227,29 @@ Before deploying to production:
 - [ ] Set up proper logging and monitoring
 - [ ] Configure database backups
 
-### Deployment Steps
+#### Deployment Steps
 
 1. Set up your production server with Python and PostgreSQL
 2. Clone the repository and set up the virtual environment
-3. Configure production environment variables
-4. Run migrations: `python manage.py migrate`
-5. Collect static files: `python manage.py collectstatic`
-6. Set up a WSGI server (Gunicorn, uWSGI)
-7. Configure a reverse proxy (Nginx, Apache)
+3. Configure production environment variables (see `.env.example`)
+4. Make the build script executable: `chmod +x build.sh`
+5. Run the build script: `./build.sh`
+6. Start the application: `gunicorn teamschedule.wsgi:application`
+7. Set up a reverse proxy (Nginx, Apache) if needed
 8. Set up SSL certificates
+
+### Environment Variables
+
+For production deployment, you'll need to set these environment variables:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SECRET_KEY` | Django secret key (generate a new one) | Yes |
+| `DEBUG` | Set to `False` for production | Yes |
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `ALLOWED_HOSTS` | Comma-separated list of allowed hosts | Yes |
+| `EMAIL_HOST_USER` | Email for notifications (optional) | No |
+| `EMAIL_HOST_PASSWORD` | Email password/app password | No |
 
 ## Troubleshooting
 

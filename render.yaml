@@ -1,0 +1,23 @@
+# Render deployment configuration
+services:
+  - type: web
+    name: teamschedule
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn teamschedule.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: teamschedule-db
+          property: connectionString
+
+databases:
+  - name: teamschedule-db
+    databaseName: teamschedule
+    user: teamschedule
