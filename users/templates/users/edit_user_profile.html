@@ -22,6 +22,29 @@
                 <form method="post">
                     {% csrf_token %}
                     
+                    <!-- Personal Information Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-user me-2"></i>Personal Information</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                   value="{{ user.first_name }}" placeholder="Enter your first name">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                   value="{{ user.last_name }}" placeholder="Enter your last name">
+                        </div>
+                        <div class="col-md-6 mt-3">
+                            <label for="title" class="form-label">Title (Optional)</label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ user.title|default:'' }}" placeholder="e.g., Coach, President, etc.">
+                            <div class="form-text">Optional title for display purposes.</div>
+                        </div>
+                    </div>
+                    
                     <!-- Email Section -->
                     <div class="row mb-4">
                         <div class="col-12">

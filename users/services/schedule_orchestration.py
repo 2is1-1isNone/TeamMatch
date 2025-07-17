@@ -230,6 +230,21 @@ class SchedulingOrchestrationService:
                     fail_silently=False
                 )
                 logger.info(f"Email sent to {team.name} admins: {admin_emails}")
+                
+                # Log the email notification
+                from users.models import DivisionLog
+                DivisionLog.log_email_notification(
+                    age_group=self.age_group,
+                    tier=self.tier,
+                    season=self.season,
+                    association=self.association,
+                    notification_type='team_notification',
+                    recipients_count=len(admin_emails),
+                    user=None,  # System-generated
+                    team=team,
+                    details=subject
+                )
+                
             except Exception as e:
                 logger.error(f"Failed to send email to {team.name}: {e}")
     

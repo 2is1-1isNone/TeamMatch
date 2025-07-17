@@ -356,6 +356,7 @@ class DivisionLog(models.Model):
         ('availability_updated', 'Team Availability Updated'),
         ('deadline_set', 'Deadline Set'),
         ('system_info', 'System Information'),
+        ('email_notification', 'Email Notification Sent'),
     ]
     
     # Division identification
@@ -480,5 +481,42 @@ class DivisionLog(models.Model):
             user=user,
             team=team,
             metadata={'action': action, 'details': details}
+        )
+    
+    @classmethod
+    def log_email_notification(cls, age_group, tier, season, association, notification_type, recipients_count, user=None, team=None, details=None):
+        """Log email notification events"""
+        notification_icons = {
+            'unscheduled_matches': '📧',
+            'availability_reminder': '⏰',
+            'schedule_ready': '✅',
+            'deadline_reminder': '⚠️',
+            'team_notification': '👥',
+        }
+        
+        icon = notification_icons.get(notification_type, '📬')
+        
+        if team:
+            message = f"{icon} Email notification sent to {team.name} ({recipients_count} recipients) - {notification_type.replace('_', ' ').title()}"
+        else:
+            message = f"{icon} Email notification sent to {recipients_count} recipients - {notification_type.replace('_', ' ').title()}"
+            
+        if details:
+            message += f" - {details}"
+        
+        return cls.objects.create(
+            age_group=age_group,
+            tier=tier,
+            season=season,
+            association=association,
+            log_type='email_notification',
+            message=message,
+            user=user,
+            team=team,
+            metadata={
+                'notification_type': notification_type,
+                'recipients_count': recipients_count,
+                'details': details
+            }
         )
 

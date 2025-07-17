@@ -4,6 +4,7 @@ from django.contrib.auth import login, authenticate
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods  # Add this line
 from django.utils import timezone  # Add timezone import
+from django.db import IntegrityError  # Add IntegrityError import
 import json  # Add json import
 from .models import User, Team, Club, Association, Schedule, TeamInvite, TeamDate, DivisionSchedulingState, ScheduleProposal, DivisionLog
 from .forms import (
@@ -42,7 +43,7 @@ def register(request):
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('home')  # Redirect to user_home
+        return redirect('user_home')  # Redirect to user_home
     return render(request, 'users/landing.html')
 
 @login_required
@@ -114,37 +115,87 @@ def team_profile(request, team_id=None):
         else:
             club = None
 
-        # Team: either select existing or create new
-        team_id = request.POST.get('team')
-        if team_id:
-            team = Team.objects.get(id=team_id)
-        else:
-            team_name = request.POST.get('team_name')
-            age_group = request.POST.get('age_group')
-            tier = request.POST.get('tier')
-            season = request.POST.get('season')
-            description = request.POST.get('description')
-            location = request.POST.get('location')
-            ready_for_scheduling = bool(request.POST.get('ready_for_scheduling'))
+        # Team: either update existing (if team_id in URL) or create new
+        try:
+            if team_id:
+                # We're editing an existing team (from URL parameter)
+                team = get_object_or_404(Team, id=team_id)
+                print(f"DEBUG: Editing existing team {team.id}: {team.name}")
+                
+                # Update the existing team's fields
+                new_name = request.POST.get('team_name', team.name)
+                print(f"DEBUG: Changing name from '{team.name}' to '{new_name}'")
+                
+                team.name = new_name
+                team.club = club if club else team.club
+                team.age_group = request.POST.get('age_group', team.age_group)
+                team.tier = request.POST.get('tier', team.tier)
+                team.season = request.POST.get('season', team.season)
+                team.description = request.POST.get('description', team.description)
+                team.location = request.POST.get('location', team.location)
+                team.save()
+                print(f"DEBUG: Successfully updated team {team.id}")
+                
+            else:
+                # We're creating a new team
+                team_name = request.POST.get('team_name')
+                age_group = request.POST.get('age_group')
+                tier = request.POST.get('tier')
+                season = request.POST.get('season')
+                description = request.POST.get('description')
+                location = request.POST.get('location')
 
-            team = Team.objects.create(
-                name=team_name,
-                club=club,
-                age_group=age_group,
-                tier=tier,
-                season=season,
-                description=description,
-                location=location,
-                ready_for_scheduling=ready_for_scheduling,
-            )
-            team.members.add(request.user)
-            team.admins.add(request.user)        # New code for handling invites
-        if not team_id:
-            invite_emails = request.POST.get('invite_emails', '')
-            for email in [e.strip().lower() for e in invite_emails.split(',') if e.strip()]:
-                # Create a TeamInvite object (store email in lowercase)
-                TeamInvite.objects.create(team=team, email=email)
-                # Optionally send an email invite here
+                print(f"DEBUG: Creating new team with name '{team_name}'")
+                
+                team = Team.objects.create(
+                    name=team_name,
+                    club=club,
+                    age_group=age_group,
+                    tier=tier,
+                    season=season,
+                    description=description,
+                    location=location,
+                )
+                team.members.add(request.user)
+                team.admins.add(request.user)
+                
+                print(f"DEBUG: Successfully created new team {team.id}")
+                
+                # Handle invites only for new teams
+                invite_emails = request.POST.get('invite_emails', '')
+                for email in [e.strip().lower() for e in invite_emails.split(',') if e.strip()]:
+                    # Create a TeamInvite object (store email in lowercase)
+                    TeamInvite.objects.create(team=team, email=email)
+                    # Optionally send an email invite here
+        
+        except IntegrityError as e:
+            error_message = str(e)
+            print(f"DEBUG: IntegrityError occurred: {error_message}")
+            
+            if 'unique_team_name' in error_message or 'duplicate key' in error_message:
+                messages.error(request, f"A team with the name '{request.POST.get('team_name')}' already exists. Please choose a different name.")
+            else:
+                messages.error(request, f"Database error: {error_message}")
+                
+            return render(request, 'users/team_profile.html', {
+                'team': team,
+                'associations': associations,
+                'clubs': clubs,
+                'teams': teams,
+                'age_groups': age_groups,
+                'tiers': tiers,
+            })
+        except Exception as e:
+            print(f"DEBUG: Unexpected error: {str(e)}")
+            messages.error(request, f"An unexpected error occurred: {str(e)}")
+            return render(request, 'users/team_profile.html', {
+                'team': team,
+                'associations': associations,
+                'clubs': clubs,
+                'teams': teams,
+                'age_groups': age_groups,
+                'tiers': tiers,
+            })
 
         return redirect('home')
 
@@ -1356,8 +1407,20 @@ def user_profile(request):
 
 @login_required  
 def edit_user_profile(request):
-    """Edit user profile - email and password"""
+    """Edit user profile - name, email, title, and password"""
     if request.method == 'POST':
+        # Handle name and title changes
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        title = request.POST.get('title', '').strip()
+        
+        if first_name != request.user.first_name or last_name != request.user.last_name or title != request.user.title:
+            request.user.first_name = first_name
+            request.user.last_name = last_name
+            request.user.title = title
+            request.user.save()
+            messages.success(request, 'Profile information updated successfully.')
+        
         # Handle email change
         new_email = request.POST.get('email', '').strip()
         if new_email and new_email != request.user.email:
@@ -1529,6 +1592,21 @@ def send_unscheduled_notifications(request, age_group, tier, season, association
                     teams_notified += 1
                     total_emails_sent += len(recipients)
                     print(f"✅ Email sent to {team.name}: {recipients}")
+                    
+                    # Log the email notification
+                    from users.models import DivisionLog
+                    DivisionLog.log_email_notification(
+                        age_group=age_group,
+                        tier=tier,
+                        season=season,
+                        association=association,
+                        notification_type='unscheduled_matches',
+                        recipients_count=len(recipients),
+                        user=request.user,
+                        team=team,
+                        details=f"Unscheduled matches notification sent to {len(recipients)} team members"
+                    )
+                    
                 except Exception as e:
                     print(f"❌ Failed to send email to {team.name}: {e}")
             else:
@@ -1716,6 +1794,21 @@ def send_availability_notifications(request, age_group, tier, season, associatio
                     teams_notified += 1
                     total_emails_sent += len(recipients)
                     print(f"✅ Availability notification sent to {team.name}: {recipients}")
+                    
+                    # Log the email notification
+                    from users.models import DivisionLog
+                    DivisionLog.log_email_notification(
+                        age_group=age_group,
+                        tier=tier,
+                        season=season,
+                        association=association,
+                        notification_type='availability_reminder',
+                        recipients_count=len(recipients),
+                        user=request.user,
+                        team=team,
+                        details=f"Team needs {team_data['home_series_needed']} home, {team_data['away_series_needed']} away series"
+                    )
+                    
                 except Exception as e:
                     print(f"❌ Failed to send availability notification to {team.name}: {e}")
             else:
@@ -1856,7 +1949,6 @@ def create_team(request):
         season = request.POST.get('season')
         description = request.POST.get('description')
         location = request.POST.get('location')
-        ready_for_scheduling = bool(request.POST.get('ready_for_scheduling'))
         
         # Handle club selection/creation
         club_choice = request.POST.get('club_choice')  # 'existing' or 'new'
@@ -1933,7 +2025,6 @@ def create_team(request):
             season=season,
             description=description,
             location=location,
-            ready_for_scheduling=ready_for_scheduling,
         )
         team.members.add(request.user)
         team.admins.add(request.user)
@@ -1955,7 +2046,7 @@ def create_team(request):
             TeamInvite.objects.create(team=team, email=email)
         
         messages.success(request, f'Team "{team_name}" created successfully!')
-        return redirect('control_plane')
+        return redirect('home')
     
     return render(request, 'users/create_team.html', {
         'associations': associations,
@@ -1982,20 +2073,55 @@ def division_logs(request, age_group, tier, season, association_id):
     # Log user access to division logs
     DivisionLog.log_user_login(age_group, tier, season, association, request.user)
     
-    # Perform team readiness check and log results
+    # Weekend series counting function (same as division_schedule)
+    def count_weekend_series(dates):
+        """Count actual weekend series (pairs of consecutive dates like Saturday-Sunday)"""
+        if len(dates) < 2:
+            return 0
+        
+        sorted_dates = sorted(dates)
+        series_count = 0
+        i = 0
+        
+        while i < len(sorted_dates) - 1:
+            # Check if current date and next date are consecutive (1 day apart)
+            if (sorted_dates[i + 1] - sorted_dates[i]).days == 1:
+                series_count += 1
+                i += 2  # Skip the next date since it's part of this series
+            else:
+                i += 1  # Move to next date
+        
+        return series_count
+    
+    # Calculate required series (same logic as division_schedule)
+    required_series = max(3, len(teams) - 1) if teams else 3
+    
+    # Perform team readiness check with weekend series logic
     teams_with_readiness = []
     for team in teams:
-        # Count available dates for home and away games
+        # Get home and away dates  
         team_dates = team.dates.all()
-        home_dates_count = team_dates.filter(is_home=True).count()
-        away_dates_count = team_dates.filter(is_home=False).count()
+        home_dates = [td.date for td in team_dates if td.is_home]
+        away_dates = [td.date for td in team_dates if not td.is_home]
+        
+        # Calculate availability using weekend series count
+        available_home_series = count_weekend_series(home_dates)
+        available_away_series = count_weekend_series(away_dates)
+        
+        home_series_needed = max(0, required_series - available_home_series)
+        away_series_needed = max(0, required_series - available_away_series)
         
         teams_with_readiness.append({
             'team': team,
-            'home_dates_count': home_dates_count,
-            'away_dates_count': away_dates_count,
-            'home_ready': home_dates_count >= 10,
-            'away_ready': away_dates_count >= 10,
+            'home_dates_count': len(home_dates),
+            'away_dates_count': len(away_dates),
+            'available_home_series': available_home_series,
+            'available_away_series': available_away_series,
+            'required_series': required_series,
+            'home_series_needed': home_series_needed,
+            'away_series_needed': away_series_needed,
+            'home_ready': home_series_needed == 0,
+            'away_ready': away_series_needed == 0,
         })
     
     perform_team_readiness_check(age_group, tier, season, association, teams, request.user)
@@ -2021,24 +2147,47 @@ def division_logs(request, age_group, tier, season, association_id):
     return render(request, 'users/division_logs.html', context)
 
 def perform_team_readiness_check(age_group, tier, season, association, teams, user):
-    """Check and log team readiness for schedule generation"""
+    """Check and log team readiness for schedule generation using weekend series logic"""
     from .models import DivisionLog
     
-    # Define minimum requirements (you can adjust these)
-    MIN_HOME_GAMES = 10
-    MIN_AWAY_GAMES = 10
+    # Weekend series counting function
+    def count_weekend_series(dates):
+        """Count actual weekend series (pairs of consecutive dates like Saturday-Sunday)"""
+        if len(dates) < 2:
+            return 0
+        
+        sorted_dates = sorted(dates)
+        series_count = 0
+        i = 0
+        
+        while i < len(sorted_dates) - 1:
+            # Check if current date and next date are consecutive (1 day apart)
+            if (sorted_dates[i + 1] - sorted_dates[i]).days == 1:
+                series_count += 1
+                i += 2  # Skip the next date since it's part of this series
+            else:
+                i += 1  # Move to next date
+        
+        return series_count
+    
+    # Calculate required series (same logic as division_schedule)
+    required_series = max(3, len(teams) - 1) if teams else 3
     
     for team in teams:
-        # Count available dates for home and away games
+        # Get home and away dates
         team_dates = team.dates.all()
-        home_dates = team_dates.filter(is_home=True).count()
-        away_dates = team_dates.filter(is_home=False).count()
+        home_dates = [td.date for td in team_dates if td.is_home]
+        away_dates = [td.date for td in team_dates if not td.is_home]
         
-        home_games_needed = max(0, MIN_HOME_GAMES - home_dates)
-        away_games_needed = max(0, MIN_AWAY_GAMES - away_dates)
+        # Calculate availability using weekend series count
+        available_home_series = count_weekend_series(home_dates)
+        available_away_series = count_weekend_series(away_dates)
         
-        # Log the readiness status
+        home_series_needed = max(0, required_series - available_home_series)
+        away_series_needed = max(0, required_series - available_away_series)
+        
+        # Log the readiness status with series information
         DivisionLog.log_team_readiness(
             age_group, tier, season, association, team,
-            home_games_needed, away_games_needed, user
+            home_series_needed, away_series_needed, user
         )

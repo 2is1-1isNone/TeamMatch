@@ -13,11 +13,13 @@
                     <i class="fas fa-home"></i> Home
                 </a>
             </li>
+            {% if user.is_superuser %}
             <li class="breadcrumb-item">
                 <a href="{% url 'control_plane' %}" class="text-decoration-none">
                     <i class="fas fa-cogs"></i> Control Plane
                 </a>
             </li>
+            {% endif %}
             <li class="breadcrumb-item active" aria-current="page">
                 <i class="fas fa-users"></i> Create Team
             </li>
@@ -191,14 +193,6 @@
                         <textarea id="description" name="description" class="form-control" rows="3" 
                                   placeholder="Brief description of the team"></textarea>
                     </div>
-
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" id="ready_for_scheduling" name="ready_for_scheduling" class="form-check-input">
-                        <label class="form-check-label" for="ready_for_scheduling">
-                            <strong>Ready for Scheduling</strong>
-                        </label>
-                        <div class="form-text">Check this if your team is ready to be included in schedule generation</div>
-                    </div>
                 </div>
 
                 <!-- Step 4: Team Invitations -->
@@ -218,7 +212,7 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Create Team
                     </button>
-                    <a href="{% url 'control_plane' %}" class="btn btn-secondary">
+                    <a href="{% url 'home' %}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancel
                     </a>
                 </div>

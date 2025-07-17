@@ -1,13 +1,183 @@
 {% extends "users/base.html" %}
 {% load django_bootstrap5 %}
-{% block title %}Register{% endblock %}
+{% block title %}Join TeamSchedule - Register Your Account{% endblock %}
 {% block content %}
-<h2>Register</h2>
-<form method="post" class="form">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <div class="mb-3">
-        <button type="submit" class="btn btn-primary">Register</button>
+<style>
+    .register-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 0;
+        margin-top: -20px;
+    }
+    .register-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-top: -50px;
+        position: relative;
+        z-index: 10;
+    }
+    .register-header {
+        background: linear-gradient(45deg, #f093fb 0%, #f5576c 50%, #4facfe 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+    .register-form {
+        padding: 3rem;
+        background: white;
+    }
+    .form-control {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .btn-register {
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 15px 40px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: white;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    .feature-highlight {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid #667eea;
+    }
+    .login-link {
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e9ecef;
+    }
+    .login-link a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .login-link a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+    }
+</style>
+
+<!-- Hero Section -->
+<div class="register-hero">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold mb-3">
+            <i class="fas fa-user-plus me-3"></i>Join TeamSchedule
+        </h1>
+        <p class="lead mb-0">Create your account and start managing your sports league today</p>
     </div>
-</form>
+</div>
+
+<!-- Registration Form -->
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="card register-card">
+                <div class="register-header">
+                    <h3 class="mb-2">
+                        <i class="fas fa-rocket me-2"></i>Get Started Free
+                    </h3>
+                    <p class="mb-0">Join hundreds of organizations already using TeamSchedule</p>
+                </div>
+                
+                <div class="register-form">
+                    <!-- Benefits Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="feature-highlight">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <strong>Smart Scheduling</strong><br>
+                                <small class="text-muted">Automatic schedule generation</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="feature-highlight">
+                                <i class="fas fa-users text-primary me-2"></i>
+                                <strong>Team Management</strong><br>
+                                <small class="text-muted">Organize clubs and teams</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Registration Form -->
+                    <form method="post" class="form">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <h5 class="fw-bold mb-3">
+                                <i class="fas fa-user-circle me-2 text-primary"></i>Create Your Account
+                            </h5>
+                        </div>
+                        
+                        {% bootstrap_form form %}
+                        
+                        <div class="mb-4 mt-4">
+                            <button type="submit" class="btn btn-register">
+                                <i class="fas fa-rocket me-2"></i>Create My Account
+                            </button>
+                        </div>
+                        
+                        <div class="text-center text-muted">
+                            <small>
+                                <i class="fas fa-shield-alt me-1"></i>
+                                Your information is secure and will never be shared
+                            </small>
+                        </div>
+                    </form>
+                    
+                    <!-- Login Link -->
+                    <div class="login-link">
+                        <p class="text-muted mb-2">
+                            <i class="fas fa-sign-in-alt me-1"></i>
+                            Already have an account?
+                        </p>
+                        <a href="{% url 'login' %}" class="fw-bold">
+                            Sign in to your account
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Benefits Section -->
+<div class="container my-5 py-4">
+    <div class="row text-center">
+        <div class="col-md-4 mb-3">
+            <i class="fas fa-clock text-primary mb-2" style="font-size: 2rem;"></i>
+            <h6 class="fw-bold">Quick Setup</h6>
+            <small class="text-muted">Get started in minutes</small>
+        </div>
+        <div class="col-md-4 mb-3">
+            <i class="fas fa-mobile-alt text-success mb-2" style="font-size: 2rem;"></i>
+            <h6 class="fw-bold">Mobile Ready</h6>
+            <small class="text-muted">Access anywhere, anytime</small>
+        </div>
+        <div class="col-md-4 mb-3">
+            <i class="fas fa-headset text-info mb-2" style="font-size: 2rem;"></i>
+            <h6 class="fw-bold">Support</h6>
+            <small class="text-muted">We're here to help</small>
+        </div>
+    </div>
+</div>
 {% endblock %}

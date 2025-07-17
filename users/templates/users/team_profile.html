@@ -43,7 +43,6 @@
                         <tr><th>Tier:</th><td>{{ team.tier }}</td></tr>
                         <tr><th>Season:</th><td>{{ team.season }}</td></tr>
                         <tr><th>Location:</th><td>{{ team.location }}</td></tr>
-                        <tr><th>Ready for Scheduling:</th><td>{{ team.ready_for_scheduling }}</td></tr>
                     </table>
                 </div>
                 <div class="col-md-6">
@@ -53,7 +52,14 @@
                             <ul class="list-group">
                                 {% for member in team.members.all %}
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        {{ member }}
+                                        <div>
+                                            <strong>{{ member.first_name }} {{ member.last_name }}</strong>
+                                            {% if member.title %}
+                                                <span class="text-muted">({{ member.title }})</span>
+                                            {% endif %}
+                                            <br>
+                                            <small class="text-muted">{{ member.email }}</small>
+                                        </div>
                                         {% if member in team.admins.all %}
                                             <span class="badge bg-primary">Admin</span>
                                         {% endif %}
@@ -164,10 +170,6 @@
                 <input type="text" id="location" name="location" class="form-control"
                        value="{% if team %}{{ team.location }}{% endif %}">
             </div>
-            <!-- Ready for Scheduling -->
-            <div class="mb-3">
-                <label><input type="checkbox" name="ready_for_scheduling" {% if team and team.ready_for_scheduling %}checked{% endif %}> Ready for Scheduling</label>
-            </div>
             <!-- Invite Members (only when creating a team) -->
             {% if not team %}
             <div class="mb-3">
@@ -269,12 +271,6 @@
                     <div class="mb-3">
                         <label for="location"><strong>Location</strong></label>
                         <input type="text" id="location" name="location" class="form-control" placeholder="City, State">
-                    </div>
-
-                    <!-- Ready for Scheduling -->
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" id="ready_for_scheduling" name="ready_for_scheduling" class="form-check-input">
-                        <label class="form-check-label" for="ready_for_scheduling">Ready for Scheduling</label>
                     </div>
 
                     <!-- Invite Members -->

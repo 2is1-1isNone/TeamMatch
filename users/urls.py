@@ -11,7 +11,7 @@ urlpatterns = [
     path('club/new/', views.create_club, name='create_club'),
     path('association/new/', views.create_association, name='create_association'),
     path('accounts/login/', auth_views.LoginView.as_view(authentication_form=EmailAuthenticationForm), name='login'),
-    path('home/', views.user_home, name='home'),  # <-- Add this line
+    path('home/', views.user_home, name='user_home'),  # Changed name to avoid conflict
     path('profile/', views.user_profile, name='user_profile'),
     path('profile/edit/', views.edit_user_profile, name='edit_user_profile'),
     path('team/<int:team_id>/delete/', views.delete_team, name='delete_team'),

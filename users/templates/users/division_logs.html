@@ -33,22 +33,32 @@
                                     
                                     <div class="mt-2">
                                         <div class="d-flex justify-content-between">
-                                            <span>Home dates:</span>
+                                            <span>Home series:</span>
                                             <span class="{% if team_info.home_ready %}text-success{% else %}text-warning{% endif %}">
-                                                {{ team_info.home_dates_count }}/10
+                                                {{ team_info.available_home_series }}/{{ team_info.required_series }}
+                                                {% if not team_info.home_ready %}
+                                                    <small class="text-muted">(need {{ team_info.home_series_needed }})</small>
+                                                {% endif %}
                                             </span>
                                         </div>
                                         <div class="d-flex justify-content-between">
-                                            <span>Away dates:</span>
+                                            <span>Away series:</span>
                                             <span class="{% if team_info.away_ready %}text-success{% else %}text-warning{% endif %}">
-                                                {{ team_info.away_dates_count }}/10
+                                                {{ team_info.available_away_series }}/{{ team_info.required_series }}
+                                                {% if not team_info.away_ready %}
+                                                    <small class="text-muted">(need {{ team_info.away_series_needed }})</small>
+                                                {% endif %}
                                             </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted">Total dates:</small>
+                                            <small class="text-muted">{{ team_info.home_dates_count }}H / {{ team_info.away_dates_count }}A</small>
                                         </div>
                                         <div class="mt-1">
                                             {% if team_info.home_ready and team_info.away_ready %}
                                                 <small class="text-success"><i class="fas fa-check-circle"></i> Ready for scheduling</small>
                                             {% else %}
-                                                <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Needs more dates</small>
+                                                <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Needs more weekend series</small>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -91,7 +101,7 @@
                             </thead>
                             <tbody>
                                 {% for log in logs %}
-                                <tr class="{% if log.log_type == 'team_readiness' %}table-light{% elif log.log_type == 'schedule_generation' %}table-info{% elif log.log_type == 'user_login' %}table-secondary{% else %}table-warning{% endif %}">
+                                <tr class="{% if log.log_type == 'team_readiness' %}table-light{% elif log.log_type == 'schedule_generation' %}table-info{% elif log.log_type == 'user_login' %}table-secondary{% elif log.log_type == 'email_notification' %}table-success{% else %}table-warning{% endif %}">
                                     <td>
                                         <small>
                                             {{ log.timestamp|date:"M d, Y" }}<br>
@@ -99,7 +109,7 @@
                                         </small>
                                     </td>
                                     <td>
-                                        <span class="badge {% if log.log_type == 'team_readiness' %}bg-success{% elif log.log_type == 'schedule_generation' %}bg-primary{% elif log.log_type == 'user_login' %}bg-secondary{% elif 'team_' in log.log_type %}bg-warning{% else %}bg-info{% endif %}">
+                                        <span class="badge {% if log.log_type == 'team_readiness' %}bg-success{% elif log.log_type == 'schedule_generation' %}bg-primary{% elif log.log_type == 'user_login' %}bg-secondary{% elif log.log_type == 'email_notification' %}bg-info{% elif 'team_' in log.log_type %}bg-warning{% else %}bg-info{% endif %}">
                                             {{ log.get_log_type_display }}
                                         </span>
                                     </td>

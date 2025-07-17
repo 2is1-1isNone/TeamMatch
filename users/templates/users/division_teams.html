@@ -38,13 +38,7 @@
                                 <p class="card-text">
                                     <strong>Club:</strong> {{ team.club.name }}<br>
                                     <strong>Location:</strong> {{ team.location|default:"Not specified" }}<br>
-                                    <strong>Members:</strong> {{ team.members.count }}<br>
-                                    <strong>Ready for Scheduling:</strong> 
-                                    {% if team.ready_for_scheduling %}
-                                        <span class="badge bg-success">Yes</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">No</span>
-                                    {% endif %}
+                                    <strong>Members:</strong> {{ team.members.count }}
                                 </p>
                                 <div class="btn-group w-100">
                                     <a href="{% url 'team_page' team.id %}" class="btn btn-primary btn-sm">

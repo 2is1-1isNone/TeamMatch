@@ -35,7 +35,7 @@ class TeamForm(forms.ModelForm):
         model = Team
         fields = [
             'name', 'club', 'age_group', 'tier', 'season',
-            'description', 'location', 'ready_for_scheduling'
+            'description', 'location'
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
