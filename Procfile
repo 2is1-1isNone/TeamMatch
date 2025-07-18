@@ -1,2 +1,2 @@
-web: gunicorn teamschedule.wsgi:application
+web: gunicorn teamschedule.wsgi:application --bind 0.0.0.0:$PORT
 release: python manage.py migrate
